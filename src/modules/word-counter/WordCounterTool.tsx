@@ -22,7 +22,7 @@ export function WordCounterTool() {
 
   const handleSampleText = () => {
     setText(
-      "Antigravity UtilityBox provides fast, free, and secure online tools for everyday digital tasks. All calculations and text transformations are performed locally within your browser. This ensures total data privacy, instantaneous response times, and an enjoyable user experience without bloated server delays."
+      "Utilby provides fast, free, and secure online tools for everyday digital tasks. All calculations and text transformations are performed locally within your browser. This ensures total data privacy, instantaneous response times, and an enjoyable user experience without bloated server delays."
     );
   };
 

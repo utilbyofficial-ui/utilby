@@ -3,7 +3,7 @@ import { ToolLayout } from "@/components/shared/ToolLayout";
 import { JsonFormatterTool } from "@/modules/json-formatter/JsonFormatterTool";
 
 export const metadata: Metadata = {
-  title: "Online JSON Formatter, Beautifier & Validator | UtilityBox",
+  title: "Online JSON Formatter, Beautifier & Validator | Utilby",
   description:
     "Clean, format, indent, minify, and validate JSON data online with pinpoint syntax error detection. 100% private client-side JSON tool.",
   keywords: [
@@ -74,7 +74,7 @@ export default function JsonFormatterPage() {
     {
       question: "Is it safe to paste confidential API keys or production database JSON here?",
       answer:
-        "Yes, absolutely. Unlike many online formatters that send your payloads over the wire to their server logs, UtilityBox executes 100% in your local web browser. Inspect your browser's Network tab to confirm zero outgoing requests.",
+        "Yes, absolutely. Unlike many online formatters that send your payloads over the wire to their server logs, Utilby executes 100% in your local web browser. Inspect your browser's Network tab to confirm zero outgoing requests.",
     },
     {
       question: "What is the benefit of minifying JSON?",

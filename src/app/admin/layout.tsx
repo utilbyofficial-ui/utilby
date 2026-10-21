@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Admin Portal | UtilityBox Network",
-  description: "Secure administrative dashboard for UtilityBox Network.",
+  title: "Admin Portal | Utilby Network",
+  description: "Secure administrative dashboard for Utilby Network.",
   robots: {
     index: false,
     follow: false,

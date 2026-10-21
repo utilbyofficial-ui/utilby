@@ -3,9 +3,9 @@ import { Breadcrumbs } from "@/components/layout/Breadcrumbs";
 import { Wrench, ShieldCheck, Zap, Globe, Heart } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: "About Us | UtilityBox Network",
+  title: "About Us | Utilby Network",
   description:
-    "Learn about UtilityBox Network: our mission to build a fast, secure, free, and privacy-first online utility tools ecosystem for everyone.",
+    "Learn about Utilby Network: our mission to build a fast, secure, free, and privacy-first online utility tools ecosystem for everyone.",
 };
 
 export default function AboutPage() {
@@ -20,7 +20,7 @@ export default function AboutPage() {
           </div>
           <div>
             <h1 className="text-3xl font-black text-slate-900 dark:text-white">
-              About UtilityBox Network
+              About Utilby Network
             </h1>
             <p className="text-sm text-slate-500">
               Modern, privacy-first web utilities built for digital professionals worldwide.
@@ -30,7 +30,7 @@ export default function AboutPage() {
 
         <div className="prose prose-slate max-w-none dark:prose-invert space-y-6 text-sm sm:text-base text-slate-600 dark:text-slate-300 leading-relaxed">
           <p>
-            Welcome to <strong>UtilityBox</strong>, an international free online utility tools ecosystem. Our platform was founded with a singular conviction: everyday digital tasks like analyzing text, formatting JSON, calculating percentages, and generating secure passwords should be instant, reliable, accessible without installs, and completely private.
+            Welcome to <strong>Utilby</strong>, an international free online utility tools ecosystem. Our platform was founded with a singular conviction: everyday digital tasks like analyzing text, formatting JSON, calculating percentages, and generating secure passwords should be instant, reliable, accessible without installs, and completely private.
           </p>
 
           <h2 className="text-xl font-bold text-slate-900 dark:text-white mt-8 mb-3">
@@ -62,7 +62,7 @@ export default function AboutPage() {
             Our Long-Term Roadmap
           </h2>
           <p>
-            UtilityBox is an evolving ecosystem. Following our Phase 1 foundation tools (Word Counter, JSON Formatter, Percentage Calculator, Text Case Converter, and Password Generator), we are rolling out image manipulation tools, vector QR generators, and PDF compression engines powered by browser Web Workers.
+            Utilby is an evolving ecosystem. Following our Phase 1 foundation tools (Word Counter, JSON Formatter, Percentage Calculator, Text Case Converter, and Password Generator), we are rolling out image manipulation tools, vector QR generators, and PDF compression engines powered by browser Web Workers.
           </p>
 
           <div className="mt-8 rounded-2xl bg-indigo-50/60 p-6 border border-indigo-100 dark:bg-indigo-950/40 dark:border-indigo-900/60">

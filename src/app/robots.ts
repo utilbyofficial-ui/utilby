@@ -7,6 +7,6 @@ export default function robots(): MetadataRoute.Robots {
       allow: "/",
       disallow: ["/api/"],
     },
-    sitemap: "https://utilitybox.net/sitemap.xml",
+    sitemap: "https://utilby.com/sitemap.xml",
   };
 }

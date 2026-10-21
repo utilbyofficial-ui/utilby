@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import { Breadcrumbs } from "@/components/layout/Breadcrumbs";
 
 export const metadata: Metadata = {
-  title: "Terms of Service | UtilityBox Network",
+  title: "Terms of Service | Utilby Network",
   description:
-    "Terms of Service governing the use of free online utility tools provided by UtilityBox Network.",
+    "Terms of Service governing the use of free online utility tools provided by Utilby Network.",
 };
 
 export default function TermsOfServicePage() {
@@ -22,14 +22,14 @@ export default function TermsOfServicePage() {
 
         <div className="prose prose-slate max-w-none dark:prose-invert space-y-6 mt-8 text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
           <p>
-            By accessing or using the website located at <strong>UtilityBox</strong> (&quot;the Service&quot;), you agree to be bound by these Terms of Service. If you disagree with any part of these terms, you may not access or use the Service.
+            By accessing or using the website located at <strong>Utilby</strong> (&quot;the Service&quot;), you agree to be bound by these Terms of Service. If you disagree with any part of these terms, you may not access or use the Service.
           </p>
 
           <h2 className="text-lg font-bold text-slate-900 dark:text-white">
             1. License & Permitted Use
           </h2>
           <p>
-            UtilityBox grants you a personal, non-exclusive, non-transferable, revocable license to access and use our suite of utility tools strictly for lawful personal, educational, and business productivity purposes.
+            Utilby grants you a personal, non-exclusive, non-transferable, revocable license to access and use our suite of utility tools strictly for lawful personal, educational, and business productivity purposes.
           </p>
 
           <h2 className="text-lg font-bold text-slate-900 dark:text-white">
@@ -46,14 +46,14 @@ export default function TermsOfServicePage() {
             3. Disclaimer of Warranties
           </h2>
           <p>
-            The tools and calculations on UtilityBox are provided on an &quot;AS IS&quot; and &quot;AS AVAILABLE&quot; basis without warranties of any kind, whether express or implied. While we strive for mathematical and algorithmic precision, we make no guarantees regarding uninterrupted availability, error-free operation, or suitability for critical financial, legal, or mission-critical systems.
+            The tools and calculations on Utilby are provided on an &quot;AS IS&quot; and &quot;AS AVAILABLE&quot; basis without warranties of any kind, whether express or implied. While we strive for mathematical and algorithmic precision, we make no guarantees regarding uninterrupted availability, error-free operation, or suitability for critical financial, legal, or mission-critical systems.
           </p>
 
           <h2 className="text-lg font-bold text-slate-900 dark:text-white">
             4. Limitation of Liability
           </h2>
           <p>
-            In no event shall UtilityBox, its creators, or operators be liable for any direct, indirect, incidental, special, or consequential damages resulting from the use or inability to use our tools or reliance on calculated outcomes.
+            In no event shall Utilby, its creators, or operators be liable for any direct, indirect, incidental, special, or consequential damages resulting from the use or inability to use our tools or reliance on calculated outcomes.
           </p>
 
           <h2 className="text-lg font-bold text-slate-900 dark:text-white">

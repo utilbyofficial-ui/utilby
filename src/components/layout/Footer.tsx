@@ -53,14 +53,14 @@ export function Footer() {
                 <Wrench className="h-4 w-4" />
               </div>
               <span className="text-lg font-black tracking-tight text-slate-900 dark:text-white">
-                Utility<span className="text-indigo-600 dark:text-indigo-400">Box</span>
+                Util<span className="text-indigo-600 dark:text-indigo-400">by</span>
               </span>
             </Link>
             <p className="mt-3 max-w-sm text-xs leading-relaxed text-slate-500">
               An international free online utility tools network designed to simplify everyday digital workflows for developers, writers, students, and professionals worldwide.
             </p>
             <p className="mt-4 text-[11px] text-slate-400 flex items-center gap-2">
-              <span>© {new Date().getFullYear()} UtilityBox Network. All rights reserved.</span>
+              <span>© {new Date().getFullYear()} Utilby Network. All rights reserved.</span>
               <span>•</span>
               <Link href="/admin" className="text-slate-400 hover:text-indigo-600 transition-colors">
                 Admin Portal

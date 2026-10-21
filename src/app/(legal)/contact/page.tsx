@@ -3,9 +3,9 @@ import { Breadcrumbs } from "@/components/layout/Breadcrumbs";
 import { Mail, MessageSquare, Clock, Shield } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: "Contact & Support | UtilityBox Network",
+  title: "Contact & Support | Utilby Network",
   description:
-    "Get in touch with the UtilityBox team for support, feature suggestions, bug reports, and business inquiries.",
+    "Get in touch with the Utilby team for support, feature suggestions, bug reports, and business inquiries.",
 };
 
 export default function ContactPage() {
@@ -27,10 +27,10 @@ export default function ContactPage() {
             <h3 className="text-sm font-bold text-slate-900 dark:text-white">Email Us</h3>
             <p className="mt-1 text-xs text-slate-500">For general support & business questions:</p>
             <a
-              href="mailto:support@utilitybox.net"
+              href="mailto:support@utilby.com"
               className="mt-3 block text-xs font-semibold text-indigo-600 hover:underline dark:text-indigo-400"
             >
-              support@utilitybox.net
+              support@utilby.com
             </a>
           </div>
 

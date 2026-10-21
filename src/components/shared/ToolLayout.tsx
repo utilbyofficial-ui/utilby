@@ -43,13 +43,13 @@ export function ToolLayout({
       <SchemaScript
         toolName={title}
         description={subtitle}
-        url={`https://yourdomain.com/tools/${toolId}`}
+        url={`https://utilby.com/tools/${toolId}`}
         category={category}
         faqs={faqs}
         breadcrumbs={[
-          { name: "Home", url: "https://yourdomain.com" },
-          { name: category, url: `https://yourdomain.com/#${categorySlug}` },
-          { name: title, url: `https://yourdomain.com/tools/${toolId}` },
+          { name: "Home", url: "https://utilby.com" },
+          { name: category, url: `https://utilby.com/#${categorySlug}` },
+          { name: title, url: `https://utilby.com/tools/${toolId}` },
         ]}
       />
 

@@ -52,12 +52,12 @@ export function AdminDashboard() {
 
   // Check auth session
   React.useEffect(() => {
-    const sessionAuth = sessionStorage.getItem("utilitybox_admin_auth");
+    const sessionAuth = sessionStorage.getItem("utilby_admin_auth");
     if (sessionAuth === "true") {
       setIsAuthenticated(true);
     }
 
-    const savedTools = localStorage.getItem("utilitybox_admin_tools");
+    const savedTools = localStorage.getItem("utilby_admin_tools");
     if (savedTools) {
       try {
         setTools(JSON.parse(savedTools));
@@ -71,7 +71,7 @@ export function AdminDashboard() {
     e.preventDefault();
     if (pinInput.trim() === DEFAULT_PIN) {
       setIsAuthenticated(true);
-      sessionStorage.setItem("utilitybox_admin_auth", "true");
+      sessionStorage.setItem("utilby_admin_auth", "true");
       setLoginError("");
     } else {
       setLoginError("Invalid passcode. Please enter the correct admin passcode.");
@@ -80,7 +80,7 @@ export function AdminDashboard() {
 
   const handleLogout = () => {
     setIsAuthenticated(false);
-    sessionStorage.removeItem("utilitybox_admin_auth");
+    sessionStorage.removeItem("utilby_admin_auth");
   };
 
   // Toggle tool active status
@@ -89,7 +89,7 @@ export function AdminDashboard() {
       t.id === id ? { ...t, isReady: !t.isReady } : t
     );
     setTools(updated);
-    localStorage.setItem("utilitybox_admin_tools", JSON.stringify(updated));
+    localStorage.setItem("utilby_admin_tools", JSON.stringify(updated));
   };
 
   // Edit tool data
@@ -104,7 +104,7 @@ export function AdminDashboard() {
   };
 
   const handleSaveEditor = () => {
-    localStorage.setItem("utilitybox_admin_tools", JSON.stringify(tools));
+    localStorage.setItem("utilby_admin_tools", JSON.stringify(tools));
     setSaveSuccess(true);
     setTimeout(() => setSaveSuccess(false), 2500);
   };
@@ -112,7 +112,7 @@ export function AdminDashboard() {
   const handleResetDefaults = () => {
     if (confirm("Reset all tools configuration to project defaults?")) {
       setTools(DEFAULT_TOOLS);
-      localStorage.removeItem("utilitybox_admin_tools");
+      localStorage.removeItem("utilby_admin_tools");
     }
   };
 
@@ -134,7 +134,7 @@ export function AdminDashboard() {
             <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-600/20 border border-indigo-500/30 text-indigo-400 mb-4">
               <Lock className="h-7 w-7" />
             </div>
-            <h1 className="text-2xl font-black text-white">UtilityBox Admin Portal</h1>
+            <h1 className="text-2xl font-black text-white">Utilby Admin Portal</h1>
             <p className="mt-1 text-xs text-slate-400">
               Enter your master passcode to access the administrative control center.
             </p>
@@ -202,7 +202,7 @@ export function AdminDashboard() {
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-base font-bold text-white">UtilityBox</span>
+                <span className="text-base font-bold text-white">Utilby</span>
                 <span className="rounded bg-indigo-950 px-2 py-0.5 text-[10px] font-bold text-indigo-400 border border-indigo-800/60">
                   ADMIN CONSOLE
                 </span>

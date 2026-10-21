@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import { Breadcrumbs } from "@/components/layout/Breadcrumbs";
 
 export const metadata: Metadata = {
-  title: "Disclaimer | UtilityBox Network",
+  title: "Disclaimer | Utilby Network",
   description:
-    "Disclaimer regarding calculation results, security password generation, and third-party advertising on UtilityBox Network.",
+    "Disclaimer regarding calculation results, security password generation, and third-party advertising on Utilby Network.",
 };
 
 export default function DisclaimerPage() {
@@ -25,7 +25,7 @@ export default function DisclaimerPage() {
             1. General Informational Use Only
           </h2>
           <p>
-            All utility calculators, statistical analyzers, formatting engines, and password generators provided on UtilityBox are intended exclusively for general productivity, educational, and computational assistance. They do not constitute official financial, legal, cryptographic audit, or investment advice.
+            All utility calculators, statistical analyzers, formatting engines, and password generators provided on Utilby are intended exclusively for general productivity, educational, and computational assistance. They do not constitute official financial, legal, cryptographic audit, or investment advice.
           </p>
 
           <h2 className="text-lg font-bold text-slate-900 dark:text-white">
@@ -39,7 +39,7 @@ export default function DisclaimerPage() {
             3. Password Security & Storage
           </h2>
           <p>
-            While our password generator uses cryptographically secure pseudo-random number generators (CSPRNG), the ultimate safety of your online accounts depends on how you store and handle generated credentials (e.g., using a reputable password manager, enabling multi-factor authentication, and avoiding public computer exposure). UtilityBox does not save passwords and is not responsible for lost or compromised credentials.
+            While our password generator uses cryptographically secure pseudo-random number generators (CSPRNG), the ultimate safety of your online accounts depends on how you store and handle generated credentials (e.g., using a reputable password manager, enabling multi-factor authentication, and avoiding public computer exposure). Utilby does not save passwords and is not responsible for lost or compromised credentials.
           </p>
 
           <h2 className="text-lg font-bold text-slate-900 dark:text-white">

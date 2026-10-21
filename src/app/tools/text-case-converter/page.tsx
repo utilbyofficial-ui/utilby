@@ -3,7 +3,7 @@ import { ToolLayout } from "@/components/shared/ToolLayout";
 import { TextCaseConverterTool } from "@/modules/text-case/TextCaseConverterTool";
 
 export const metadata: Metadata = {
-  title: "Online Text Case Converter: Upper, Lower, Title & Sentence Case | UtilityBox",
+  title: "Online Text Case Converter: Upper, Lower, Title & Sentence Case | Utilby",
   description:
     "Instantly convert text to UPPERCASE, lowercase, Title Case, Sentence case, and Capitalized words. Clean spaces and remove duplicate lines for free.",
   keywords: [

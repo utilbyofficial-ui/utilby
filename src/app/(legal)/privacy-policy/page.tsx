@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import { Breadcrumbs } from "@/components/layout/Breadcrumbs";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy | UtilityBox Network",
+  title: "Privacy Policy | Utilby Network",
   description:
-    "Privacy Policy for UtilityBox Network: our strict commitment to 100% client-side processing, cookie disclosures, and GDPR/CCPA compliance.",
+    "Privacy Policy for Utilby Network: our strict commitment to 100% client-side processing, cookie disclosures, and GDPR/CCPA compliance.",
 };
 
 export default function PrivacyPolicyPage() {
@@ -22,14 +22,14 @@ export default function PrivacyPolicyPage() {
 
         <div className="prose prose-slate max-w-none dark:prose-invert space-y-6 mt-8 text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
           <p>
-            At <strong>UtilityBox</strong> (&quot;we&quot;, &quot;our&quot;, or &quot;us&quot;), we consider the privacy of our visitors to be of paramount importance. This Privacy Policy document outlines the types of personal and technical information collected and recorded by UtilityBox and how we strictly safeguard it.
+            At <strong>Utilby</strong> (&quot;we&quot;, &quot;our&quot;, or &quot;us&quot;), we consider the privacy of our visitors to be of paramount importance. This Privacy Policy document outlines the types of personal and technical information collected and recorded by Utilby and how we strictly safeguard it.
           </p>
 
           <h2 className="text-lg font-bold text-slate-900 dark:text-white">
             1. Core Principle: 100% Client-Side Processing
           </h2>
           <p>
-            The fundamental architecture of UtilityBox is built on local browser execution:
+            The fundamental architecture of Utilby is built on local browser execution:
           </p>
           <ul className="list-disc pl-5 space-y-1.5">
             <li>We do <strong>not</strong> upload, transmit, store, or log any text, JSON payloads, passwords, documents, or files you input into our utility tools.</li>
@@ -41,14 +41,14 @@ export default function PrivacyPolicyPage() {
             2. Log Files & Analytics
           </h2>
           <p>
-            Like standard websites, UtilityBox may utilize basic server access logs and privacy-preserving analytics (such as Google Analytics 4) to monitor general web traffic patterns, such as browser type, referring pages, timestamps, and page views. This technical information is purely aggregated, anonymized, and does not identify any individual person.
+            Like standard websites, Utilby may utilize basic server access logs and privacy-preserving analytics (such as Google Analytics 4) to monitor general web traffic patterns, such as browser type, referring pages, timestamps, and page views. This technical information is purely aggregated, anonymized, and does not identify any individual person.
           </p>
 
           <h2 className="text-lg font-bold text-slate-900 dark:text-white">
             3. Cookies & Web Beacons
           </h2>
           <p>
-            UtilityBox uses cookies strictly where necessary to preserve your user interface preferences (such as dark/light theme mode or indentation preferences).
+            Utilby uses cookies strictly where necessary to preserve your user interface preferences (such as dark/light theme mode or indentation preferences).
           </p>
 
           <h2 className="text-lg font-bold text-slate-900 dark:text-white">
@@ -67,7 +67,7 @@ export default function PrivacyPolicyPage() {
             5. GDPR and CCPA Compliance
           </h2>
           <p>
-            If you are a resident of the European Economic Area (EEA) or California, you are afforded specific data privacy rights. Because UtilityBox does not collect, sell, or retain personal information, accounts, or user content, your personal data footprint on our site is minimal to non-existent.
+            If you are a resident of the European Economic Area (EEA) or California, you are afforded specific data privacy rights. Because Utilby does not collect, sell, or retain personal information, accounts, or user content, your personal data footprint on our site is minimal to non-existent.
           </p>
 
           <h2 className="text-lg font-bold text-slate-900 dark:text-white">
@@ -81,7 +81,7 @@ export default function PrivacyPolicyPage() {
             7. Contact Information
           </h2>
           <p>
-            If you have questions or require more information about our Privacy Policy, please contact us at <a href="mailto:privacy@utilitybox.net" className="text-indigo-600 underline">privacy@utilitybox.net</a>.
+            If you have questions or require more information about our Privacy Policy, please contact us at <a href="mailto:privacy@utilby.com" className="text-indigo-600 underline">privacy@utilby.com</a>.
           </p>
         </div>
       </div>

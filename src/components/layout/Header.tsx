@@ -30,7 +30,7 @@ export function Header() {
           <div className="flex flex-col">
             <div className="flex items-center gap-1.5">
               <span className="text-lg font-black tracking-tight text-slate-900 dark:text-white">
-                Utility<span className="text-indigo-600 dark:text-indigo-400">Box</span>
+                Util<span className="text-indigo-600 dark:text-indigo-400">by</span>
               </span>
               <span className="rounded bg-indigo-100 px-1.5 py-0.5 text-[10px] font-bold text-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-300">
                 100% FREE

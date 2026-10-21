@@ -4,15 +4,15 @@ import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://utilitybox.net"),
+  metadataBase: new URL("https://utilby.com"),
   title: {
-    default: "UtilityBox - 100% Free Online Utility Tools Network",
-    template: "%s | UtilityBox",
+    default: "Utilby - 100% Free Online Utility Tools Network",
+    template: "%s | Utilby",
   },
   description:
     "Free, fast, and secure online utility tools network. Word counter, JSON formatter, percentage calculator, case converter, and secure password generator with zero server uploads.",
-  applicationName: "UtilityBox Network",
-  authors: [{ name: "UtilityBox Network Team" }],
+  applicationName: "Utilby Network",
+  authors: [{ name: "Utilby Network Team" }],
   keywords: [
     "free online tools",
     "utility tools",
@@ -23,8 +23,8 @@ export const metadata: Metadata = {
     "case converter",
     "client-side utilities",
   ],
-  creator: "UtilityBox Network",
-  publisher: "UtilityBox Network",
+  creator: "Utilby Network",
+  publisher: "Utilby Network",
   formatDetection: {
     email: false,
     address: false,
@@ -33,15 +33,15 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "en_US",
-    url: "https://utilitybox.net",
-    siteName: "UtilityBox Network",
-    title: "UtilityBox - 100% Free Online Utility Tools Network",
+    url: "https://utilby.com",
+    siteName: "Utilby Network",
+    title: "Utilby - 100% Free Online Utility Tools Network",
     description:
       "Fast, private, and free browser-based online tools for everyday work.",
   },
   twitter: {
     card: "summary_large_image",
-    title: "UtilityBox - Free Online Utility Tools",
+    title: "Utilby - Free Online Utility Tools",
     description: "Fast, private, and free browser utilities with zero server upload.",
   },
   robots: {

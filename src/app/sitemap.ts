@@ -2,7 +2,7 @@ import { MetadataRoute } from "next";
 import { TOOLS } from "@/lib/tools-registry";
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = "https://utilitybox.net";
+  const baseUrl = "https://utilby.com";
   const now = new Date();
 
   // Core static pages
