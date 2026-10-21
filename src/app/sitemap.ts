@@ -1,6 +1,8 @@
 import { MetadataRoute } from "next";
 import { TOOLS } from "@/lib/tools-registry";
 
+export const dynamic = "force-static";
+
 export default function sitemap(): MetadataRoute.Sitemap {
   const baseUrl = "https://utilby.com";
   const now = new Date();
