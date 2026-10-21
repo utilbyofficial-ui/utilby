@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { TOOLS, CATEGORIES } from "@/lib/tools-registry";
 import { AdSlot } from "@/components/ads/AdSlot";
+import { InteractiveArchitectureShowcase } from "@/components/home/InteractiveArchitectureShowcase";
 import {
   FileText,
   Code2,
@@ -90,6 +91,9 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* Interactive Railway-Style Architecture Engine Showcase */}
+      <InteractiveArchitectureShowcase />
 
       {/* Main Tools Directory */}
       <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
@@ -235,50 +239,6 @@ export default function HomePage() {
             ))}
           </div>
         </div>
-
-        {/* How It Works Section */}
-        <section className="mb-14">
-          <div className="text-center max-w-2xl mx-auto mb-10">
-            <h2 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">
-              Why Choose Our Utility Network?
-            </h2>
-            <p className="mt-2 text-xs sm:text-sm text-slate-500">
-              Built from the ground up to respect user privacy and eliminate computational latency.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400 font-bold mb-4">
-                1
-              </div>
-              <h3 className="text-base font-bold text-slate-900 dark:text-white">Local-First Processing</h3>
-              <p className="mt-2 text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                Your data never travels over the network. Calculations, word counts, and cryptographic operations execute directly inside your browser.
-              </p>
-            </div>
-
-            <div className="rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-400 font-bold mb-4">
-                2
-              </div>
-              <h3 className="text-base font-bold text-slate-900 dark:text-white">Zero Bloat & No Signups</h3>
-              <p className="mt-2 text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                No credit cards, no login screens, no email subscriptions. Open any tool, get your work done in seconds, and move on.
-              </p>
-            </div>
-
-            <div className="rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400 font-bold mb-4">
-                3
-              </div>
-              <h3 className="text-base font-bold text-slate-900 dark:text-white">Modern & Accessible</h3>
-              <p className="mt-2 text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                Designed with mobile-first principles, clean typography, keyboard accessibility, and intuitive copy buttons.
-              </p>
-            </div>
-          </div>
-        </section>
       </div>
     </div>
   );
