@@ -313,7 +313,7 @@ export function DedicatedToolsShowcase() {
                       </span>
                     )}
                   </div>
-                  <div className="w-full rounded-2xl border border-slate-200 bg-slate-900 p-3 font-mono text-xs text-emerald-400 overflow-x-auto min-h-[140px] max-h-[160px]">
+                  <div className="w-full rounded-2xl border border-slate-200 bg-slate-50 p-3 font-mono text-xs text-slate-800 overflow-x-auto min-h-[140px] max-h-[160px] whitespace-pre">
                     {jsonOutput || "// Click 'Format' to see formatted JSON output here"}
                   </div>
                 </div>
