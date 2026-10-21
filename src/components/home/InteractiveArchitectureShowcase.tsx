@@ -168,10 +168,10 @@ export function InteractiveArchitectureShowcase() {
   const dynamicOutput = getDynamicOutput();
 
   return (
-    <section className="relative overflow-hidden bg-[#07090E] py-20 text-slate-100 border-y border-slate-800">
+    <section className="relative overflow-hidden bg-[#07090E] py-20 text-slate-100 border-y border-white/[0.08]">
       {/* Background Dot Matrix (Railway Style) */}
       <div 
-        className="absolute inset-0 opacity-25 pointer-events-none"
+        className="absolute inset-0 opacity-20 pointer-events-none"
         style={{
           backgroundImage: "radial-gradient(#6366f1 1px, transparent 1px)",
           backgroundSize: "24px 24px",
@@ -185,27 +185,27 @@ export function InteractiveArchitectureShowcase() {
       <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         {/* Section Header */}
         <div className="text-center max-w-3xl mx-auto mb-14">
-          <div className="inline-flex items-center gap-2 rounded-full border border-indigo-500/30 bg-indigo-500/10 px-3.5 py-1 text-xs font-semibold text-indigo-400 mb-4 backdrop-blur-md">
+          <div className="inline-flex items-center gap-2 rounded-full border border-indigo-500/30 bg-indigo-500/10 px-3.5 py-1 text-xs font-mono font-semibold text-indigo-300 mb-4 backdrop-blur-md">
             <Sparkles className="h-3.5 w-3.5 text-indigo-400" />
-            <span>Interactive Architecture Engine</span>
+            <span>Interactive Client Engine</span>
           </div>
 
           <h2 className="text-3xl sm:text-5xl font-black tracking-tight text-white">
-            How Utilby Works:{" "}
+            Architecture Blueprint:{" "}
             <span className="bg-gradient-to-r from-indigo-400 via-violet-400 to-purple-400 bg-clip-text text-transparent">
-              Zero Latency, 100% In-Browser
+              Zero Latency, In-Browser
             </span>
           </h2>
 
           <p className="mt-4 text-sm sm:text-base text-slate-400 max-w-2xl mx-auto leading-relaxed">
-            Unlike traditional utility websites that upload your confidential files to remote servers, Utilby runs micro-engines directly inside your browser’s V8 environment. Zero cloud roundtrips, zero storage leaks.
+            Unlike traditional utility sites that secretly upload your files to remote cloud servers, Utilby compiles micro-algorithms directly inside your browser’s V8 JavaScript engine. Zero cloud roundtrips, zero storage footprint.
           </p>
         </div>
 
         {/* The Railway-Style Interactive Canvas & Control Deck */}
-        <div className="rounded-2xl border border-slate-800 bg-[#0B0F19]/90 backdrop-blur-xl shadow-2xl overflow-hidden">
+        <div className="rounded-2xl border border-white/[0.1] bg-[#0C1019]/90 backdrop-blur-xl shadow-2xl overflow-hidden">
           {/* Top Terminal Bar */}
-          <div className="flex flex-wrap items-center justify-between border-b border-slate-800/80 px-4 py-3 bg-[#080B12]/80">
+          <div className="flex flex-wrap items-center justify-between border-b border-white/[0.08] px-4 py-3 bg-[#080B12]/80">
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-1.5">
                 <span className="h-3 w-3 rounded-full bg-rose-500/80" />
@@ -226,12 +226,12 @@ export function InteractiveArchitectureShowcase() {
                 </span>
                 <span>ENGINE ACTIVE</span>
               </div>
-              <div className="text-slate-500 hidden sm:block">|</div>
+              <div className="text-slate-600 hidden sm:block">|</div>
               <div className="flex items-center gap-1 text-slate-300 hidden sm:flex">
                 <Lock className="h-3 w-3 text-emerald-400" />
                 <span>CLOUD UPLOAD: 0 BYTES</span>
               </div>
-              <div className="text-slate-500 hidden sm:block">|</div>
+              <div className="text-slate-600 hidden sm:block">|</div>
               <div className="flex items-center gap-1 text-indigo-300">
                 <Zap className="h-3 w-3 text-amber-400" />
                 <span>LATENCY: &lt; 0.2ms</span>
@@ -242,16 +242,16 @@ export function InteractiveArchitectureShowcase() {
           {/* Interactive Workspace Body: Left Rail + Pipeline Visualizer */}
           <div className="grid grid-cols-1 lg:grid-cols-12 min-h-[480px]">
             {/* Left Rail (Railway Style Indicator Track) */}
-            <div className="lg:col-span-4 border-b lg:border-b-0 lg:border-r border-slate-800/80 p-5 bg-[#080B13]/60 flex flex-col justify-between">
+            <div className="lg:col-span-4 border-b lg:border-b-0 lg:border-r border-white/[0.08] p-5 bg-[#080B13]/70 flex flex-col justify-between">
               <div>
-                <div className="text-[11px] font-mono uppercase tracking-widest text-slate-500 mb-4 flex items-center justify-between">
+                <div className="text-[11px] font-mono uppercase tracking-widest text-slate-400 mb-4 flex items-center justify-between">
                   <span>Select Execution Pipeline</span>
                   <span className="text-indigo-400">Interactive</span>
                 </div>
 
                 <div className="relative pl-6 space-y-3">
                   {/* Vertical Rail Line with sliding indicator */}
-                  <div className="absolute left-2.5 top-2 bottom-2 w-0.5 bg-slate-800">
+                  <div className="absolute left-2.5 top-2 bottom-2 w-0.5 bg-white/[0.08]">
                     <div
                       className="absolute w-2 h-2 rounded-full bg-indigo-500 -left-[3px] shadow-[0_0_8px_#6366f1] transition-all duration-300"
                       style={{
@@ -275,8 +275,8 @@ export function InteractiveArchitectureShowcase() {
                         onClick={() => handleTabChange(mode.id)}
                         className={`w-full text-left rounded-xl p-3.5 transition-all text-xs border ${
                           isSelected
-                            ? "bg-indigo-950/40 border-indigo-500/50 text-white shadow-lg shadow-indigo-500/10"
-                            : "bg-slate-900/40 border-slate-800/60 text-slate-400 hover:text-slate-200 hover:border-slate-700"
+                            ? "bg-indigo-950/50 border-indigo-500/60 text-white shadow-lg shadow-indigo-500/10"
+                            : "bg-white/[0.02] border-white/[0.06] text-slate-400 hover:text-slate-200 hover:border-white/[0.12] hover:bg-white/[0.04]"
                         }`}
                       >
                         <div className="flex items-center justify-between">
@@ -298,8 +298,8 @@ export function InteractiveArchitectureShowcase() {
               </div>
 
               {/* Engine Spec Card at Bottom of Rail */}
-              <div className="mt-6 rounded-xl border border-slate-800/80 bg-slate-900/60 p-3.5 text-[11px]">
-                <div className="font-mono text-slate-400 font-semibold mb-2 flex items-center gap-1.5">
+              <div className="mt-6 rounded-xl border border-white/[0.08] bg-white/[0.02] p-3.5 text-[11px]">
+                <div className="font-mono text-slate-300 font-semibold mb-2 flex items-center gap-1.5">
                   <Cpu className="h-3.5 w-3.5 text-indigo-400" />
                   <span>Sub-System Architecture</span>
                 </div>
@@ -321,7 +321,7 @@ export function InteractiveArchitectureShowcase() {
             </div>
 
             {/* Right: The Animated Dynamic Flow Architecture Canvas */}
-            <div className="lg:col-span-8 p-6 lg:p-8 flex flex-col justify-between relative overflow-hidden bg-gradient-to-br from-[#0B0F19] via-[#090D16] to-[#070A10]">
+            <div className="lg:col-span-8 p-6 lg:p-8 flex flex-col justify-between relative overflow-hidden bg-gradient-to-br from-[#0C1019] via-[#090D16] to-[#070A10]">
               {/* Animated SVG Connector Background Wires */}
               <div className="hidden md:block absolute inset-0 pointer-events-none">
                 <svg className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
@@ -349,7 +349,7 @@ export function InteractiveArchitectureShowcase() {
               {/* Three-Tier Pipeline Visual Nodes */}
               <div className="relative z-10 grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
                 {/* Node 1: User Client Input */}
-                <div className="flex flex-col justify-between rounded-xl border border-slate-700/60 bg-slate-900/90 p-4 shadow-xl backdrop-blur-md">
+                <div className="flex flex-col justify-between rounded-xl border border-white/[0.08] bg-[#0A0E17]/90 p-4 shadow-xl backdrop-blur-md">
                   <div>
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider">
@@ -364,17 +364,17 @@ export function InteractiveArchitectureShowcase() {
                         value={customInput}
                         onChange={(e) => setCustomInput(e.target.value)}
                         rows={3}
-                        className="w-full rounded-lg border border-slate-700 bg-slate-950 p-2 text-xs text-slate-200 focus:border-indigo-500 focus:outline-none resize-none font-mono"
+                        className="w-full rounded-lg border border-white/[0.1] bg-black/60 p-2 text-xs text-slate-200 focus:border-indigo-500 focus:outline-none resize-none font-mono"
                         placeholder="Type something here to see instant client calculation..."
                       />
                     ) : (
-                      <div className="rounded-lg border border-slate-800 bg-slate-950 p-2.5 font-mono text-[11px] text-slate-300 break-all select-all">
+                      <div className="rounded-lg border border-white/[0.08] bg-black/60 p-2.5 font-mono text-[11px] text-slate-300 break-all select-all">
                         {currentMode.defaultInput}
                       </div>
                     )}
                   </div>
 
-                  <div className="mt-3 pt-2 border-t border-slate-800 flex items-center justify-between text-[10px] text-slate-400 font-mono">
+                  <div className="mt-3 pt-2 border-t border-white/[0.06] flex items-center justify-between text-[10px] text-slate-400 font-mono">
                     <span>Input Buffer</span>
                     <span className="text-emerald-400">Sandboxed ✓</span>
                   </div>
@@ -382,7 +382,7 @@ export function InteractiveArchitectureShowcase() {
 
                 {/* Node 2: Core In-Browser Compute Engine */}
                 <div
-                  className={`flex flex-col justify-between rounded-xl border bg-gradient-to-b from-indigo-950/60 to-slate-900/90 p-4 shadow-xl backdrop-blur-md transition-all ${
+                  className={`flex flex-col justify-between rounded-xl border bg-gradient-to-b from-indigo-950/60 to-[#0A0E17]/95 p-4 shadow-xl backdrop-blur-md transition-all ${
                     isSimulating
                       ? "border-indigo-400 shadow-[0_0_25px_rgba(99,102,241,0.4)] scale-105"
                       : "border-indigo-500/40 shadow-indigo-500/10"
@@ -397,7 +397,7 @@ export function InteractiveArchitectureShowcase() {
                     </div>
                     <div className="text-xs font-bold text-white mb-2">Local V8 Micro-Kernel</div>
 
-                    <div className="space-y-2 rounded-lg bg-slate-950/80 p-2.5 border border-indigo-950 text-[11px] font-mono text-slate-300">
+                    <div className="space-y-2 rounded-lg bg-black/60 p-2.5 border border-indigo-950 text-[11px] font-mono text-slate-300">
                       <div className="flex items-center gap-1.5 text-indigo-300 font-semibold">
                         <Layers className="h-3 w-3" />
                         <span>{currentMode.toolName}</span>
@@ -412,14 +412,14 @@ export function InteractiveArchitectureShowcase() {
                     </div>
                   </div>
 
-                  <div className="mt-3 pt-2 border-t border-indigo-900/50 flex items-center justify-between text-[10px] font-mono">
+                  <div className="mt-3 pt-2 border-t border-white/[0.06] flex items-center justify-between text-[10px] font-mono">
                     <span className="text-slate-400">Roundtrip:</span>
                     <span className="text-emerald-400 font-bold">0.00ms</span>
                   </div>
                 </div>
 
                 {/* Node 3: Instant Local Output */}
-                <div className="flex flex-col justify-between rounded-xl border border-slate-700/60 bg-slate-900/90 p-4 shadow-xl backdrop-blur-md">
+                <div className="flex flex-col justify-between rounded-xl border border-white/[0.08] bg-[#0A0E17]/90 p-4 shadow-xl backdrop-blur-md">
                   <div>
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider">
@@ -429,7 +429,7 @@ export function InteractiveArchitectureShowcase() {
                     </div>
                     <div className="text-xs font-bold text-white mb-2">Processed In Real-Time</div>
 
-                    <div className="rounded-lg border border-slate-800 bg-slate-950 p-2.5 font-mono text-xs">
+                    <div className="rounded-lg border border-white/[0.08] bg-black/60 p-2.5 font-mono text-xs">
                       <div className="font-bold text-indigo-300">{dynamicOutput.primary}</div>
                       <div className="mt-1.5 space-y-0.5 text-[10px] text-slate-400">
                         {dynamicOutput.details.map((detail, idx) => (
@@ -442,7 +442,7 @@ export function InteractiveArchitectureShowcase() {
                     </div>
                   </div>
 
-                  <div className="mt-3 pt-2 border-t border-slate-800 flex items-center justify-between text-[10px] text-slate-400 font-mono">
+                  <div className="mt-3 pt-2 border-t border-white/[0.06] flex items-center justify-between text-[10px] text-slate-400 font-mono">
                     <span>Status</span>
                     <span className="text-emerald-400 font-semibold">{dynamicOutput.statusText}</span>
                   </div>
@@ -450,11 +450,11 @@ export function InteractiveArchitectureShowcase() {
               </div>
 
               {/* Bottom Interactive Action & Launch Tool Bar */}
-              <div className="mt-8 pt-5 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="mt-8 pt-5 border-t border-white/[0.08] flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
                   <button
                     onClick={triggerSimulation}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-slate-700 hover:text-white transition-colors"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.1] bg-white/[0.04] px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-white/[0.08] hover:text-white transition-colors"
                   >
                     <RefreshCw className={`h-3.5 w-3.5 ${isSimulating ? "animate-spin" : ""}`} />
                     <span>Trigger Micro-Cycle</span>
@@ -478,7 +478,7 @@ export function InteractiveArchitectureShowcase() {
 
         {/* Triple Feature Cards Below Visualizer (Railway Inspired Highlights) */}
         <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="group rounded-2xl border border-slate-800/80 bg-[#0B0F19]/60 p-6 transition-all hover:border-indigo-500/50 hover:bg-[#0B0F19]">
+          <div className="group rounded-2xl border border-white/[0.08] bg-[#0C1019]/60 p-6 transition-all hover:border-indigo-500/50 hover:bg-[#0E131F]">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 mb-4 group-hover:scale-110 transition-transform">
               <Lock className="h-5 w-5" />
             </div>
@@ -488,7 +488,7 @@ export function InteractiveArchitectureShowcase() {
             </p>
           </div>
 
-          <div className="group rounded-2xl border border-slate-800/80 bg-[#0B0F19]/60 p-6 transition-all hover:border-violet-500/50 hover:bg-[#0B0F19]">
+          <div className="group rounded-2xl border border-white/[0.08] bg-[#0C1019]/60 p-6 transition-all hover:border-violet-500/50 hover:bg-[#0E131F]">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-500/10 text-violet-400 border border-violet-500/20 mb-4 group-hover:scale-110 transition-transform">
               <Zap className="h-5 w-5" />
             </div>
@@ -498,7 +498,7 @@ export function InteractiveArchitectureShowcase() {
             </p>
           </div>
 
-          <div className="group rounded-2xl border border-slate-800/80 bg-[#0B0F19]/60 p-6 transition-all hover:border-emerald-500/50 hover:bg-[#0B0F19]">
+          <div className="group rounded-2xl border border-white/[0.08] bg-[#0C1019]/60 p-6 transition-all hover:border-emerald-500/50 hover:bg-[#0E131F]">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 mb-4 group-hover:scale-110 transition-transform">
               <ShieldCheck className="h-5 w-5" />
             </div>
