@@ -59,8 +59,12 @@ export function Footer() {
             <p className="mt-3 max-w-sm text-xs leading-relaxed text-slate-500">
               An international free online utility tools network designed to simplify everyday digital workflows for developers, writers, students, and professionals worldwide.
             </p>
-            <p className="mt-4 text-[11px] text-slate-400">
-              © {new Date().getFullYear()} UtilityBox Network. All rights reserved.
+            <p className="mt-4 text-[11px] text-slate-400 flex items-center gap-2">
+              <span>© {new Date().getFullYear()} UtilityBox Network. All rights reserved.</span>
+              <span>•</span>
+              <Link href="/admin" className="text-slate-400 hover:text-indigo-600 transition-colors">
+                Admin Portal
+              </Link>
             </p>
           </div>
 
