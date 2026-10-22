@@ -29,7 +29,7 @@ export default function HomePage() {
       <section className="mx-auto max-w-[1240px] px-4 pb-12 pt-14 text-center sm:px-6 sm:pt-20 lg:px-8">
         <p className="animate-fade-up inline-flex items-center gap-2 rounded-full bg-sec-soft px-4 py-2 text-sm font-semibold text-emerald-800">
           <span className="h-2 w-2 rounded-full bg-sec" />
-          Your files never leave your device
+          15 free browser tools · No sign-up
         </p>
         <h1 className="animate-fade-up mx-auto mt-6 max-w-[900px] font-display text-[44px] font-extrabold leading-[1.02] tracking-[-0.035em] text-ink sm:text-[64px] lg:text-[84px]">
           The friendly toolbox for{" "}

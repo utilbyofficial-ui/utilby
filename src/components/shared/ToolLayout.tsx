@@ -150,15 +150,6 @@ export function ToolLayout({
                 ))}
               </ul>
             </div>
-            <div className="rounded-3xl bg-sec-soft p-6">
-              <p className="flex items-center gap-2 text-sm font-bold text-ink">
-                <ShieldCheck className="h-5 w-5 text-sec" />
-                Privacy promise
-              </p>
-              <p className="mt-2 text-sm leading-relaxed text-slate-700">
-                This tool runs entirely in your browser. Your files, text, and numbers are never uploaded, stored, or logged on any server.
-              </p>
-            </div>
           </aside>
         </div>
       </div>

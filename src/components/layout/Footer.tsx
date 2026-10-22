@@ -20,10 +20,6 @@ export function Footer() {
             <p className="mt-4 max-w-xs text-sm leading-relaxed text-slate-400">
               The friendly toolbox for everyday files. Free, instant, and private — everything runs in your browser.
             </p>
-            <p className="mt-6 inline-flex items-center gap-2 rounded-full bg-white/10 px-3.5 py-1.5 text-xs font-semibold text-white">
-              <span className="h-2 w-2 rounded-full bg-sec" />
-              Your files never leave your device
-            </p>
           </div>
 
           <div>

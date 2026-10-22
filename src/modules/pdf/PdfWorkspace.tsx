@@ -878,7 +878,7 @@ export function PdfWorkspace({ mode = "organize" }: PdfWorkspaceProps) {
             )}
             {errorBox}
             <p className="text-[11px] leading-relaxed text-slate-400">
-              Your files are processed on this device and never uploaded. Original files are not changed.
+              Original files are kept unchanged on your device.
             </p>
           </div>
         </aside>

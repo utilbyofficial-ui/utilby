@@ -53,7 +53,7 @@ Coming soon (registry, `isReady: false`): PDF Editor, PDF Compressor.
 ## Agreed next steps (owner wants them one at a time, in this order)
 1. ~~Hide empty ad placeholders~~ — done (8d2a5c5).
 2. ~~Compact tool hero~~ — done (shrink `ToolLayout` hero: smaller glyph/h1, shorter subtitle, tighter padding so tool is visible without scrolling on mobile).
-3. **Reduce repeated privacy messaging** (currently hero pill + sidebar box + homepage cards + footer + tool hints). Keep one clear statement per page.
+3. ~~Reduce repeated privacy messaging~~ — done (one clear statement per page: hero pill on tool pages, #promise on homepage, removed duplicate sidebar box, workspace hints, and footer badge).
 4. **Favicon + Open Graph share images** (site-wide and per tool; static export → generate PNGs at build time or commit them in `public/og/`).
 5. **Category landing pages** (`/pdf-tools`, `/image-tools`, …) and remove the duplicated "Every tool" list from the homepage.
 6. **Unify inner tool UI colors** (QR tabs/EC buttons, PDF toolbar, compressor/resizer controls → ink or category color for selected states).
