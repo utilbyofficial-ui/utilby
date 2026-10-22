@@ -121,8 +121,9 @@ export const TOOLS: ToolMeta[] = [
     shortDescription: "Generate custom QR codes for URLs, text, Wi-Fi networks, and contact vCards in SVG and PNG.",
     longDescription: "High-resolution vector and raster QR code generator with custom styling and instant download.",
     iconName: "QrCode",
-    isReady: false,
-    keywords: ["qr code generator", "create qr code free", "wifi qr code"],
+    isReady: true,
+    featured: true,
+    keywords: ["qr code generator", "create qr code free", "wifi qr code", "vcard qr code", "qr code svg", "qr code png"],
   },
   {
     id: "pdf-merger",
