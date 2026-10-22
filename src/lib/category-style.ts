@@ -55,6 +55,8 @@ export const CATEGORY_ORDER: CategoryId[] = ["pdf", "image", "developer", "text"
 /** Hand-picked "most loved" tools for the homepage. */
 export const POPULAR_TOOL_IDS = [
   "pdf-merger",
+  "pdf-editor",
+  "pdf-to-jpg",
   "image-compressor",
   "jpg-to-pdf",
   "split-pdf",
