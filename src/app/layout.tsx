@@ -31,6 +31,7 @@ export const metadata: Metadata = {
   publisher: "Utilby Network",
   icons: {
     icon: [
+      { url: "/icon.svg", type: "image/svg+xml" },
       { url: "/icon.png", type: "image/png" },
       { url: "/favicon.ico", sizes: "any" },
     ],

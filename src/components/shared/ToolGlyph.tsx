@@ -55,13 +55,23 @@ export function CategoryGlyph({ category, size = "lg", className }: { category: 
 
 export function Logo({ className }: { className?: string }) {
   return (
-    <span className={cn("flex items-center gap-2.5", className)}>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src="/brand/concept-2-3d-isometric-icon.png"
-        alt="Utilby"
-        className="h-9 w-9 rounded-xl shadow-xs object-cover"
-      />
+    <span className={cn("flex items-center gap-2", className)}>
+      <svg
+        viewBox="0 0 64 64"
+        width="30"
+        height="30"
+        className="h-[30px] w-[30px] shrink-0"
+        fill="none"
+        aria-hidden="true"
+      >
+        <path
+          d="M15 14 V34 C15 43.4 22.6 51 32 51 C41.4 51 49 43.4 49 34 V14"
+          stroke="#16141F"
+          strokeWidth="11"
+          strokeLinecap="round"
+        />
+        <circle cx="32" cy="34" r="10" fill="#FFC53D" />
+      </svg>
       <span className="font-display text-[22px] font-extrabold tracking-tight text-ink">utilby</span>
     </span>
   );

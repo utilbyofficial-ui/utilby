@@ -12,13 +12,23 @@ export function Footer() {
       <div className="mx-auto max-w-[1240px] px-4 pb-10 pt-16 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 gap-12 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
           <div>
-            <Link href="/" className="flex items-center gap-2.5" aria-label="Utilby home">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="/brand/concept-2-3d-isometric-icon.png"
-                alt="Utilby"
-                className="h-9 w-9 rounded-xl shadow-xs object-cover"
-              />
+            <Link href="/" className="flex items-center gap-2" aria-label="Utilby home">
+              <svg
+                viewBox="0 0 64 64"
+                width="30"
+                height="30"
+                className="h-[30px] w-[30px] shrink-0"
+                fill="none"
+                aria-hidden="true"
+              >
+                <path
+                  d="M15 14 V34 C15 43.4 22.6 51 32 51 C41.4 51 49 43.4 49 34 V14"
+                  stroke="#FFFFFF"
+                  strokeWidth="11"
+                  strokeLinecap="round"
+                />
+                <circle cx="32" cy="34" r="10" fill="#FFC53D" />
+              </svg>
               <span className="font-display text-[22px] font-extrabold tracking-tight text-white">utilby</span>
             </Link>
             <p className="mt-4 max-w-xs text-sm leading-relaxed text-slate-400">

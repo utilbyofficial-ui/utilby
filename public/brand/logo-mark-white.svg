@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" fill="none">
+  <defs>
+    <linearGradient id="sunGlowWhite" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFDB70"/>
+      <stop offset="100%" stop-color="#FFB31A"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Modern Geometric 'u' shape in white on transparent background -->
+  <path d="M15 16 V34 C15 43.4 22.6 51 32 51 C41.4 51 49 43.4 49 34 V16" 
+        stroke="#FFFFFF" 
+        stroke-width="10" 
+        stroke-linecap="round"/>
+
+  <!-- Golden Sun Core -->
+  <circle cx="32" cy="34" r="10" fill="url(#sunGlowWhite)"/>
+</svg>
