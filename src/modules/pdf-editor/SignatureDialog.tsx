@@ -23,6 +23,7 @@ export function SignatureDialog({
   const isDrawing = React.useRef(false);
   const lastPoint = React.useRef<{ x: number; y: number } | null>(null);
   const hasStrokes = React.useRef(false);
+  const [error, setError] = React.useState("");
 
   // Clear canvas
   const clearCanvas = React.useCallback(() => {
@@ -49,6 +50,7 @@ export function SignatureDialog({
     const x = (e.clientX - rect.left) * (canvas.width / rect.width);
     const y = (e.clientY - rect.top) * (canvas.height / rect.height);
     isDrawing.current = true;
+    setError("");
     lastPoint.current = { x, y };
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
   };
@@ -92,7 +94,7 @@ export function SignatureDialog({
     if (tab === "draw") {
       const canvas = canvasRef.current;
       if (!canvas || !hasStrokes.current) {
-        alert("Please draw your signature first.");
+        setError("Please draw your signature first.");
         return;
       }
       const dataUrl = canvas.toDataURL("image/png");
@@ -100,7 +102,7 @@ export function SignatureDialog({
       onClose();
     } else {
       if (!typedName.trim()) {
-        alert("Please type your name or initials.");
+        setError("Please type your name or initials.");
         return;
       }
       // Render typed text to a clean transparent canvas
@@ -132,11 +134,11 @@ export function SignatureDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="w-full max-w-lg bg-card border border-border rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+      <div className="w-full max-w-lg bg-card border border-border rounded-3xl shadow-lift overflow-hidden flex flex-col">
         {/* Modal Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-muted/30">
           <div className="flex items-center gap-2">
-            <PenTool className="w-5 h-5 text-amber-500" />
+            <PenTool className="w-5 h-5 text-pdf" />
             <h3 className="font-semibold text-lg text-foreground">Add Signature</h3>
           </div>
           <button
@@ -198,7 +200,7 @@ export function SignatureDialog({
         <div className="p-6">
           {tab === "draw" ? (
             <div className="space-y-3">
-              <div className="relative border-2 border-dashed border-border rounded-xl bg-slate-50 dark:bg-zinc-900/60 overflow-hidden">
+              <div className="relative border-2 border-dashed border-border rounded-xl bg-slate-50 overflow-hidden">
                 <canvas
                   ref={canvasRef}
                   width={600}
@@ -233,9 +235,12 @@ export function SignatureDialog({
                 <input
                   type="text"
                   value={typedName}
-                  onChange={(e) => setTypedName(e.target.value)}
+                  onChange={(e) => {
+                    setTypedName(e.target.value);
+                    setError("");
+                  }}
                   placeholder="e.g. John Doe"
-                  className="w-full px-4 py-2.5 rounded-xl border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+                  className="w-full px-4 py-2.5 rounded-xl border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
                   autoFocus
                 />
               </div>
@@ -256,7 +261,7 @@ export function SignatureDialog({
                       onClick={() => setTypedFont(style.id as any)}
                       className={`p-3 rounded-xl border text-center transition-all ${
                         typedFont === style.id
-                          ? "border-amber-500 bg-amber-500/10 text-foreground"
+                          ? "border-ink bg-slate-100 text-foreground"
                           : "border-border hover:border-border/80 bg-muted/20 text-muted-foreground"
                       }`}
                     >
@@ -268,7 +273,7 @@ export function SignatureDialog({
               </div>
 
               {typedName && (
-                <div className="p-4 rounded-xl border border-border bg-slate-50 dark:bg-zinc-900/60 flex items-center justify-center min-h-[90px]">
+                <div className="p-4 rounded-xl border border-border bg-slate-50 flex items-center justify-center min-h-[90px]">
                   <span
                     style={{
                       color: inkColor,
@@ -292,10 +297,11 @@ export function SignatureDialog({
 
         {/* Modal Footer */}
         <div className="px-6 py-4 border-t border-border bg-muted/30 flex items-center justify-end gap-3">
+          {error && <p className="mr-auto text-xs font-medium text-rose-600">{error}</p>}
           <Button variant="outline" size="sm" onClick={onClose}>
             Cancel
           </Button>
-          <Button size="sm" onClick={handleApply} className="bg-amber-500 hover:bg-amber-600 text-black font-medium">
+          <Button size="sm" onClick={handleApply} >
             <Check className="w-4 h-4 mr-1.5" />
             Apply Signature
           </Button>

@@ -1,4 +1,6 @@
 import { getPdfLib } from "@/modules/pdf/build";
+import { PageGeometry, displaySize, normalizeRotation, toPdfPoint, toPdfRect, uprightAnchor } from "./geometry";
+import { removeTextInRects, bytesToLatin1, latin1ToBytes } from "./contentStream";
 
 export type ToolMode =
   | "select"
@@ -29,6 +31,8 @@ export interface ExistingTextItem {
   isBold?: boolean;
   isEdited: boolean;
   isDeleted?: boolean;
+  /** Font size / family / weight / color changed by the user */
+  styleChanged?: boolean;
   origNormX: number;
   origNormY: number;
   origNormW: number;
@@ -244,191 +248,266 @@ export function dataUrlToBytes(dataUrl: string): Uint8Array {
   return new Uint8Array(Buffer.from(base64, "base64"));
 }
 
+/** Detects PNG / JPEG from the first bytes (data URL mime types can lie, e.g. WebP saved as .png). */
+export function detectImageFormat(bytes: Uint8Array): "png" | "jpg" | null {
+  if (bytes.length > 8 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) return "png";
+  if (bytes.length > 3 && bytes[0] === 0xff && bytes[1] === 0xd8) return "jpg";
+  return null;
+}
+
+/** Renders text the standard PDF fonts can't encode (Bengali, emoji, CJK…) to an image. Browser-only. */
+export type TextRasterizer = (input: {
+  text: string;
+  fontSize: number;
+  color: string;
+  fontFamily: "Helvetica" | "Times" | "Courier";
+  isBold?: boolean;
+}) => { dataUrl: string; width: number; height: number } | null;
+
+export interface ExportOptions {
+  /** Fallback for characters outside the standard PDF fonts (WinAnsi). */
+  rasterizeText?: TextRasterizer;
+  /** Remove the original text under whiteouts from the content stream (default true). */
+  removeHiddenText?: boolean;
+}
+
+const LINE_HEIGHT = 1.2;
+
 /**
  * Master PDF burning engine: loads original PDF bytes and applies all annotations,
- * burning them into the PDF vector layer.
+ * burning them into the PDF. Handles rotated pages and offset CropBoxes, removes text that is
+ * covered by whiteouts (so it can't be searched/copied anymore) and never fails on
+ * characters the standard fonts can't encode.
  */
 export async function exportPdfWithAnnotations(
   pdfBytes: Uint8Array,
-  annotations: Annotation[]
+  annotations: Annotation[],
+  options: ExportOptions = {}
 ): Promise<Uint8Array> {
   const pdfLib = await getPdfLib();
-  const { PDFDocument, rgb, StandardFonts } = pdfLib;
+  const { PDFDocument, rgb, StandardFonts, degrees, PDFName, PDFArray, PDFRawStream, decodePDFRawStream } = pdfLib;
   const doc = await PDFDocument.load(pdfBytes, { updateMetadata: false });
+  const removeHidden = options.removeHiddenText !== false;
 
-  // Pre-embed fonts
-  const helvetica = await doc.embedFont(StandardFonts.Helvetica);
-  const helveticaBold = await doc.embedFont(StandardFonts.HelveticaBold);
-  const times = await doc.embedFont(StandardFonts.TimesRoman);
-  const courier = await doc.embedFont(StandardFonts.Courier);
+  const fontCache = new Map<string, Awaited<ReturnType<typeof doc.embedFont>>>();
+  const getFont = async (family: string, isBold?: boolean) => {
+    const key =
+      family === "Times"
+        ? isBold
+          ? StandardFonts.TimesRomanBold
+          : StandardFonts.TimesRoman
+        : family === "Courier"
+        ? isBold
+          ? StandardFonts.CourierBold
+          : StandardFonts.Courier
+        : isBold
+        ? StandardFonts.HelveticaBold
+        : StandardFonts.Helvetica;
+    let f = fontCache.get(key);
+    if (!f) {
+      f = await doc.embedFont(key);
+      fontCache.set(key, f);
+    }
+    return f;
+  };
 
-  const getFont = (family: string, isBold?: boolean) => {
-    if (family === "Times") return times;
-    if (family === "Courier") return courier;
-    return isBold ? helveticaBold : helvetica;
+  const imageCache = new Map<string, Awaited<ReturnType<typeof doc.embedPng>> | null>();
+  const embedImage = async (dataUrl: string) => {
+    if (imageCache.has(dataUrl)) return imageCache.get(dataUrl)!;
+    let img: Awaited<ReturnType<typeof doc.embedPng>> | null = null;
+    try {
+      const bytes = dataUrlToBytes(dataUrl);
+      const fmt = detectImageFormat(bytes);
+      if (fmt === "png") img = await doc.embedPng(bytes);
+      else if (fmt === "jpg") img = await doc.embedJpg(bytes);
+    } catch (err) {
+      console.warn("Could not embed image annotation:", err);
+    }
+    imageCache.set(dataUrl, img);
+    return img;
   };
 
   const pages = doc.getPages();
-
+  const byPage = new Map<number, Annotation[]>();
   for (const ann of annotations) {
     if (ann.pageIndex < 0 || ann.pageIndex >= pages.length) continue;
-    const page = pages[ann.pageIndex]!;
-    const pdfW = page.getWidth();
-    const pdfH = page.getHeight();
+    const list = byPage.get(ann.pageIndex) ?? [];
+    list.push(ann);
+    byPage.set(ann.pageIndex, list);
+  }
 
-    switch (ann.type) {
-      case "whiteout": {
-        const { x, y, width, height } = denormalizeToPdf(
-          ann.normX,
-          ann.normY,
-          ann.normW,
-          ann.normH,
-          pdfW,
-          pdfH
-        );
-        const { r, g, b } = hexToRgb(ann.color || "#FFFFFF");
-        page.drawRectangle({
-          x,
-          y,
-          width,
-          height,
-          color: rgb(r, g, b),
-        });
-        break;
-      }
+  for (const [pageIndex, pageAnns] of byPage) {
+    const page = pages[pageIndex]!;
+    const crop = page.getCropBox();
+    const geom: PageGeometry = {
+      rotation: page.getRotation().angle,
+      x0: crop.x,
+      y0: crop.y,
+      width: crop.width,
+      height: crop.height,
+    };
+    const disp = displaySize(geom);
+    const rotate = degrees(normalizeRotation(geom.rotation));
 
-      case "highlight": {
-        const { x, y, width, height } = denormalizeToPdf(
-          ann.normX,
-          ann.normY,
-          ann.normW,
-          ann.normH,
-          pdfW,
-          pdfH
-        );
-        const { r, g, b } = hexToRgb(ann.color);
-        page.drawRectangle({
-          x,
-          y,
-          width,
-          height,
-          color: rgb(r, g, b),
-          opacity: ann.opacity ?? 0.35,
-        });
-        break;
-      }
-
-      case "text": {
-        if (!ann.text.trim()) break;
-        const font = getFont(ann.fontFamily, ann.isBold);
-        const fontSize = ann.fontSize || 14;
-        const { r, g, b } = hexToRgb(ann.color);
-        const x = ann.normX * pdfW;
-        // Text baseline adjustment
-        const y = pdfH - ann.normY * pdfH - fontSize;
-        page.drawText(ann.text, {
-          x,
-          y,
-          size: fontSize,
-          font,
-          color: rgb(r, g, b),
-        });
-        break;
-      }
-
-      case "rect": {
-        const { x, y, width, height } = denormalizeToPdf(
-          ann.normX,
-          ann.normY,
-          ann.normW,
-          ann.normH,
-          pdfW,
-          pdfH
-        );
-        const stroke = hexToRgb(ann.strokeColor);
-        const fill = ann.fillColor ? hexToRgb(ann.fillColor) : undefined;
-        page.drawRectangle({
-          x,
-          y,
-          width,
-          height,
-          borderColor: rgb(stroke.r, stroke.g, stroke.b),
-          borderWidth: ann.strokeWidth || 2,
-          color: fill ? rgb(fill.r, fill.g, fill.b) : undefined,
-        });
-        break;
-      }
-
-      case "circle": {
-        const { x, y, width, height } = denormalizeToPdf(
-          ann.normX,
-          ann.normY,
-          ann.normW,
-          ann.normH,
-          pdfW,
-          pdfH
-        );
-        const stroke = hexToRgb(ann.strokeColor);
-        const fill = ann.fillColor ? hexToRgb(ann.fillColor) : undefined;
-        page.drawEllipse({
-          x: x + width / 2,
-          y: y + height / 2,
-          xScale: width / 2,
-          yScale: height / 2,
-          borderColor: rgb(stroke.r, stroke.g, stroke.b),
-          borderWidth: ann.strokeWidth || 2,
-          color: fill ? rgb(fill.r, fill.g, fill.b) : undefined,
-        });
-        break;
-      }
-
-      case "draw": {
-        if (ann.points.length < 2) break;
-        const { r, g, b } = hexToRgb(ann.color);
-        const strokeWidth = ann.strokeWidth || 2;
-        for (let i = 0; i < ann.points.length - 1; i++) {
-          const p1 = ann.points[i]!;
-          const p2 = ann.points[i + 1]!;
-          page.drawLine({
-            start: { x: p1.normX * pdfW, y: pdfH - p1.normY * pdfH },
-            end: { x: p2.normX * pdfW, y: pdfH - p2.normY * pdfH },
-            thickness: strokeWidth,
-            color: rgb(r, g, b),
-          });
-        }
-        break;
-      }
-
-      case "signature":
-      case "image": {
-        if (!ann.dataUrl) break;
+    // 1. Truly remove original text that sits under whiteouts (edited / deleted / redacted text).
+    if (removeHidden) {
+      const rects = pageAnns
+        .filter((a): a is WhiteoutAnnotation => a.type === "whiteout")
+        .map((a) => toPdfRect(geom, a.normX, a.normY, a.normW, a.normH));
+      if (rects.length) {
         try {
-          const imageBytes = dataUrlToBytes(ann.dataUrl);
-          const isPng = ann.dataUrl.includes("image/png");
-          const embedded = isPng ? await doc.embedPng(imageBytes) : await doc.embedJpg(imageBytes);
-          const { x, y, width, height } = denormalizeToPdf(
-            ann.normX,
-            ann.normY,
-            ann.normW,
-            ann.normH,
-            pdfW,
-            pdfH
-          );
-          page.drawImage(embedded, {
-            x,
-            y,
-            width,
-            height,
-          });
-        } catch (imgErr) {
-          console.warn("Could not embed image annotation:", imgErr);
+          const contentsRef = page.node.get(PDFName.of("Contents"));
+          const contents = contentsRef ? doc.context.lookup(contentsRef) : undefined;
+          const streams: unknown[] = [];
+          if (contents instanceof PDFArray) {
+            for (let i = 0; i < contents.size(); i++) streams.push(doc.context.lookup(contents.get(i)));
+          } else if (contents) {
+            streams.push(contents);
+          }
+          if (streams.length && streams.every((st) => st instanceof PDFRawStream)) {
+            const decoded = streams.map((st) => bytesToLatin1(decodePDFRawStream(st as import("pdf-lib").PDFRawStream).decode()));
+            const joined = decoded.join("\n");
+            const result = removeTextInRects(joined, rects);
+            if (result.removed > 0) {
+              const newStream = doc.context.flateStream(latin1ToBytes(result.content));
+              page.node.set(PDFName.of("Contents"), doc.context.register(newStream));
+            }
+          }
+        } catch (err) {
+          console.warn("Could not remove hidden text (whiteout still applied):", err);
         }
-        break;
+      }
+    }
+
+    // 2. Draw annotations in order.
+    for (const ann of pageAnns) {
+      switch (ann.type) {
+        case "whiteout":
+        case "highlight": {
+          const r = toPdfRect(geom, ann.normX, ann.normY, ann.normW, ann.normH);
+          const { r: cr, g, b } = hexToRgb(ann.type === "whiteout" ? ann.color || "#FFFFFF" : ann.color);
+          page.drawRectangle({
+            ...r,
+            color: rgb(cr, g, b),
+            opacity: ann.type === "highlight" ? ann.opacity ?? 0.35 : 1,
+          });
+          break;
+        }
+
+        case "rect":
+        case "circle": {
+          const r = toPdfRect(geom, ann.normX, ann.normY, ann.normW, ann.normH);
+          const stroke = hexToRgb(ann.strokeColor);
+          const fill = ann.fillColor ? hexToRgb(ann.fillColor) : undefined;
+          const common = {
+            borderColor: rgb(stroke.r, stroke.g, stroke.b),
+            borderWidth: ann.strokeWidth || 2,
+            color: fill ? rgb(fill.r, fill.g, fill.b) : undefined,
+          };
+          if (ann.type === "rect") page.drawRectangle({ ...r, ...common });
+          else
+            page.drawEllipse({
+              x: r.x + r.width / 2,
+              y: r.y + r.height / 2,
+              xScale: r.width / 2,
+              yScale: r.height / 2,
+              ...common,
+            });
+          break;
+        }
+
+        case "draw": {
+          if (ann.points.length < 2) break;
+          const { r, g, b } = hexToRgb(ann.color);
+          for (let i = 0; i < ann.points.length - 1; i++) {
+            const p1 = ann.points[i]!;
+            const p2 = ann.points[i + 1]!;
+            page.drawLine({
+              start: toPdfPoint(geom, p1.normX, p1.normY),
+              end: toPdfPoint(geom, p2.normX, p2.normY),
+              thickness: ann.strokeWidth || 2,
+              color: rgb(r, g, b),
+              lineCap: 1,
+            });
+          }
+          break;
+        }
+
+        case "signature":
+        case "image": {
+          if (!ann.dataUrl) break;
+          const embedded = await embedImage(ann.dataUrl);
+          if (!embedded) break;
+          const anchor = uprightAnchor(geom, ann.normX, ann.normY + ann.normH);
+          page.drawImage(embedded, {
+            x: anchor.x,
+            y: anchor.y,
+            width: Math.max(1, ann.normW * disp.width),
+            height: Math.max(1, ann.normH * disp.height),
+            rotate,
+          });
+          break;
+        }
+
+        case "text": {
+          if (!ann.text.trim()) break;
+          const fontSize = ann.fontSize || 14;
+          const { r, g, b } = hexToRgb(ann.color);
+          const font = await getFont(ann.fontFamily, ann.isBold);
+          const lines = ann.text.split(/\r?\n/);
+
+          let encodable = true;
+          try {
+            for (const line of lines) font.encodeText(line);
+          } catch {
+            encodable = false;
+          }
+
+          if (!encodable && options.rasterizeText) {
+            const raster = options.rasterizeText({
+              text: ann.text,
+              fontSize,
+              color: ann.color,
+              fontFamily: ann.fontFamily,
+              isBold: ann.isBold,
+            });
+            const embedded = raster ? await embedImage(raster.dataUrl) : null;
+            if (embedded && raster) {
+              const anchor = uprightAnchor(geom, ann.normX, ann.normY + raster.height / disp.height);
+              page.drawImage(embedded, { x: anchor.x, y: anchor.y, width: raster.width, height: raster.height, rotate });
+              break;
+            }
+          }
+
+          lines.forEach((rawLine, i) => {
+            const line = encodable ? rawLine : stripUnencodable(rawLine, font);
+            if (!line.trim()) return;
+            // Baseline sits one font-size below the box top (matches how existing text is detected).
+            const baselineV = ann.normY + (fontSize + i * fontSize * LINE_HEIGHT) / disp.height;
+            const anchor = uprightAnchor(geom, ann.normX, baselineV);
+            page.drawText(line, { x: anchor.x, y: anchor.y, size: fontSize, font, color: rgb(r, g, b), rotate });
+          });
+          break;
+        }
       }
     }
   }
 
   return doc.save();
+}
+
+/** Drops characters a standard font can't encode (last-resort fallback when no rasterizer exists). */
+function stripUnencodable(text: string, font: { encodeText: (t: string) => unknown }): string {
+  let out = "";
+  for (const ch of text) {
+    try {
+      font.encodeText(ch);
+      out += ch;
+    } catch {
+      // skip
+    }
+  }
+  return out;
 }
 
 /**
@@ -553,15 +632,24 @@ export function buildCombinedAnnotations(
   userAnnotations: Annotation[],
   existingTexts: ExistingTextItem[]
 ): Annotation[] {
-  const result: Annotation[] = [...userAnnotations];
+  // Order matters: erase patches first (so they never cover images/shapes the user placed on top),
+  // then the user's own annotations, then the replacement text on top of everything.
+  const erase: Annotation[] = [];
+  const replacements: Annotation[] = [];
 
   for (const item of existingTexts) {
     if (!item.isEdited && !item.isDeleted) continue;
+    const unchanged =
+      !item.isDeleted &&
+      item.currentText === item.originalText &&
+      item.normX === item.origNormX &&
+      item.normY === item.origNormY &&
+      !item.styleChanged;
+    if (unchanged) continue; // opened for editing but nothing changed: keep the original vector text
 
-    // 1. Add whiteout over original location to erase the original text cleanly
     const padX = 0.003;
     const padY = 0.003;
-    result.push({
+    erase.push({
       id: `whiteout-for-${item.id}`,
       pageIndex: item.pageIndex,
       type: "whiteout",
@@ -572,9 +660,8 @@ export function buildCombinedAnnotations(
       color: item.bgColor || "#FFFFFF",
     });
 
-    // 2. If not deleted, draw the new/edited text at its (possibly moved) location
     if (!item.isDeleted && item.currentText.trim()) {
-      result.push({
+      replacements.push({
         id: `text-for-${item.id}`,
         pageIndex: item.pageIndex,
         type: "text",
@@ -589,7 +676,88 @@ export function buildCombinedAnnotations(
     }
   }
 
-  return result;
+  return [...erase, ...userAnnotations, ...replacements];
+}
+
+/**
+ * Converts PDF.js text items to the display coordinate space (page rotation and CropBox applied),
+ * keeping only horizontal text, in the y-up shape `groupPdfTextItems` expects.
+ * `viewportTransform` is `page.getViewport({ scale: 1 }).transform`.
+ */
+export function toDisplayTextItems(
+  rawItems: Array<{ str?: string; transform?: number[]; width?: number; height?: number; fontName?: string }>,
+  viewportTransform: number[],
+  vpHeight: number
+): Array<{ str: string; transform: number[]; width: number; height: number; fontName?: string }> {
+  const [va, vb, vc, vd, ve, vf] = viewportTransform as [number, number, number, number, number, number];
+  const out: Array<{ str: string; transform: number[]; width: number; height: number; fontName?: string }> = [];
+  for (const it of rawItems) {
+    if (!it.str || !it.transform || it.transform.length < 6) continue;
+    const [a, b, c, d, e, f] = it.transform as [number, number, number, number, number, number];
+    // m = itemTransform × viewportTransform
+    const ma = a * va + b * vc;
+    const mb = a * vb + b * vd;
+    const mc = c * va + d * vc;
+    const md = c * vb + d * vd;
+    const me = e * va + f * vc + ve;
+    const mf = e * vb + f * vd + vf;
+    // In viewport space y points down; horizontal text has (ma > 0, mb ≈ 0).
+    if (ma <= 0 || Math.abs(mb) > Math.abs(ma) * 0.05) continue;
+    const fontSize = Math.hypot(mc, md) || Math.abs(ma);
+    const scaleX = Math.hypot(ma, mb) / (Math.hypot(a, b) || 1);
+    out.push({
+      str: it.str,
+      transform: [fontSize, 0, 0, fontSize, me, vpHeight - mf],
+      width: (it.width ?? 0) * scaleX,
+      height: fontSize,
+      fontName: it.fontName,
+    });
+  }
+  return out;
+}
+
+/**
+ * Picks the text (ink) color inside a box: the pixels that differ most from the background.
+ * Browser-only (reads the rendered page canvas).
+ */
+export function sampleTextColor(
+  sourceCanvas: HTMLCanvasElement,
+  normX: number,
+  normY: number,
+  normW: number,
+  normH: number,
+  bgHex: string
+): string {
+  try {
+    const ctx = sourceCanvas.getContext("2d", { willReadFrequently: true });
+    if (!ctx) return "#16141F";
+    const x = Math.max(0, Math.floor(normX * sourceCanvas.width));
+    const y = Math.max(0, Math.floor(normY * sourceCanvas.height));
+    const w = Math.max(1, Math.min(sourceCanvas.width - x, Math.ceil(normW * sourceCanvas.width)));
+    const h = Math.max(1, Math.min(sourceCanvas.height - y, Math.ceil(normH * sourceCanvas.height)));
+    const data = ctx.getImageData(x, y, w, h).data;
+    const bg = hexToRgb(bgHex);
+    const br = bg.r * 255;
+    const bgG = bg.g * 255;
+    const bb = bg.b * 255;
+    const px: { r: number; g: number; b: number; d: number }[] = [];
+    const step = Math.max(1, Math.floor((w * h) / 4000));
+    for (let i = 0; i < data.length; i += 4 * step) {
+      const r = data[i]!;
+      const g = data[i + 1]!;
+      const b = data[i + 2]!;
+      const dist = Math.abs(r - br) + Math.abs(g - bgG) + Math.abs(b - bb);
+      if (dist > 60) px.push({ r, g, b, d: dist });
+    }
+    if (!px.length) return "#16141F";
+    px.sort((p, q) => q.d - p.d);
+    const top = px.slice(0, Math.max(1, Math.floor(px.length * 0.3)));
+    const avg = (k: "r" | "g" | "b") => Math.round(top.reduce((s2, p) => s2 + p[k], 0) / top.length);
+    const toHex = (n: number) => Math.max(0, Math.min(255, n)).toString(16).padStart(2, "0");
+    return `#${toHex(avg("r"))}${toHex(avg("g"))}${toHex(avg("b"))}`.toUpperCase();
+  } catch {
+    return "#16141F";
+  }
 }
 
 /**
@@ -638,7 +806,7 @@ export function sampleCanvasBorderColor(
   normH: number
 ): string {
   try {
-    const ctx = sourceCanvas.getContext("2d");
+    const ctx = sourceCanvas.getContext("2d", { willReadFrequently: true });
     if (!ctx) return "#FFFFFF";
 
     const x = Math.floor(normX * sourceCanvas.width);

@@ -20,6 +20,12 @@ const config: Config = {
     extend: {
       colors: {
         ink: { DEFAULT: "#16141F", soft: "#2E2B3B" },
+        // shadcn-style semantic aliases used by some tool components
+        background: "#FFFFFF",
+        foreground: "#16141F",
+        card: { DEFAULT: "#FFFFFF", foreground: "#16141F" },
+        border: "#ECEAF3",
+        muted: { DEFAULT: "#F4F2FA", foreground: "#57536A" },
         slate: {
           50: "#FAF9FD",
           100: "#F4F2FA",
