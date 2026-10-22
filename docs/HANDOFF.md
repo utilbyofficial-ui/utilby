@@ -54,7 +54,7 @@ Coming soon (registry, `isReady: false`): PDF Editor, PDF Compressor.
 1. ~~Hide empty ad placeholders~~ — done (8d2a5c5).
 2. ~~Compact tool hero~~ — done (shrink `ToolLayout` hero: smaller glyph/h1, shorter subtitle, tighter padding so tool is visible without scrolling on mobile).
 3. ~~Reduce repeated privacy messaging~~ — done (one clear statement per page: hero pill on tool pages, #promise on homepage, removed duplicate sidebar box, workspace hints, and footer badge).
-4. ~~Favicon + Open Graph share images~~ — done (Favicon SVG & Apple touch icon, high-res AI brand concepts in `public/brand/`, transparent watermarks for video editing, and automated 1200x630 OG banners for every tool & category).
+4. ~~Favicon + Open Graph share images~~ — done (Official final icon: U-mark with golden sun orb. Generated favicon suite, apple touch icons, automated 1200x630 OG banners for all tools & categories, and Master Brand Kit with SVG/AI and 2048x2048 PNGs in `public/brand-kit/`).
 5. ~~Category landing pages~~ — done (`/pdf-tools`, `/image-tools`, `/text-tools`, `/developer-tools`, `/calculators`, `/security-tools` + aliases with `CollectionPage`, `ItemList` sitelinks, `FAQPage` schema, AdSense slots, and removed duplicate tool list from homepage).
 6. ~~Unify inner tool UI colors~~ — done (QR tabs/EC buttons, PDF toolbar, compressor/resizer controls unified to `bg-ink text-white` selected states and `accent-ink`).
 7. ~~Shorter, plain-language tool names/descriptions~~ — done (concise tool registry entries and consistent `<Tool> – <Benefit> | Utilby` page titles).
