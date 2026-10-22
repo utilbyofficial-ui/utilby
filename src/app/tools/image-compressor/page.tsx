@@ -24,6 +24,11 @@ export const metadata: Metadata = {
     description: "Shrink images in bulk without quality loss. No upload — everything happens in your browser.",
     url: "https://utilby.com/tools/image-compressor",
     type: "website",
+    images: [{ url: "https://utilby.com/og/tools/image-compressor.png", width: 1200, height: 630 }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    images: ["https://utilby.com/og/tools/image-compressor.png"],
   },
 };
 

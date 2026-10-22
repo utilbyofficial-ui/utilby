@@ -29,6 +29,15 @@ export const metadata: Metadata = {
   ],
   creator: "Utilby Network",
   publisher: "Utilby Network",
+  icons: {
+    icon: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+      { url: "/favicon.ico", sizes: "any" },
+    ],
+    apple: [
+      { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
+    ],
+  },
   formatDetection: {
     email: false,
     address: false,
@@ -38,15 +47,24 @@ export const metadata: Metadata = {
     type: "website",
     locale: "en_US",
     url: "https://utilby.com",
-    siteName: "Utilby Network",
-    title: "Utilby - 100% Free Online Utility Tools Network",
+    siteName: "Utilby",
+    title: "Utilby – 100% Free Online Utility Tools",
     description:
       "Fast, private, and free browser-based online tools for everyday work.",
+    images: [
+      {
+        url: "https://utilby.com/og/default.png",
+        width: 1200,
+        height: 630,
+        alt: "Utilby – Free Online Utility Tools Network",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Utilby - Free Online Utility Tools",
+    title: "Utilby – Free Online Utility Tools",
     description: "Fast, private, and free browser utilities with zero server upload.",
+    images: ["https://utilby.com/og/default.png"],
   },
   robots: {
     index: true,

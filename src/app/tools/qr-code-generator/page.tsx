@@ -23,6 +23,11 @@ export const metadata: Metadata = {
     description: "Make QR codes for links, Wi-Fi, contacts and more. Download PNG or SVG. 100% in your browser.",
     url: "https://utilby.com/tools/qr-code-generator",
     type: "website",
+    images: [{ url: "https://utilby.com/og/tools/qr-code-generator.png", width: 1200, height: 630 }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    images: ["https://utilby.com/og/tools/qr-code-generator.png"],
   },
 };
 

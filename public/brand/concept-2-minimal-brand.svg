@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1A1824"/>
+      <stop offset="100%" stop-color="#100E17"/>
+    </linearGradient>
+    <linearGradient id="sun2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFDB70"/>
+      <stop offset="100%" stop-color="#FFB31A"/>
+    </linearGradient>
+    <filter id="glow2" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="12" stdDeviation="24" flood-color="#FFC53D" flood-opacity="0.5"/>
+    </filter>
+  </defs>
+
+  <!-- Deep Ink Squircle -->
+  <rect x="24" y="24" width="464" height="464" rx="120" fill="url(#bg2)"/>
+  <rect x="24" y="24" width="464" height="464" rx="120" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-opacity="0.1"/>
+
+  <!-- Iconic Pure Sun Orb -->
+  <circle cx="256" cy="256" r="108" fill="url(#sun2)" filter="url(#glow2)"/>
+</svg>

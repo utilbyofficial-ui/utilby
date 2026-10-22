@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 200" width="720" height="200">
+  <defs>
+    <linearGradient id="sunWatermark" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFDB70"/>
+      <stop offset="100%" stop-color="#FFB31A"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Icon Squircle -->
+  <rect x="20" y="28" width="144" height="144" rx="38" fill="#16141F"/>
+  <circle cx="92" cy="100" r="32" fill="url(#sunWatermark)"/>
+
+  <!-- Brand Wordmark "utilby" -->
+  <text x="194" y="128" 
+        font-family="'Bricolage Grotesque', 'DM Sans', system-ui, -apple-system, sans-serif" 
+        font-size="96" 
+        font-weight="800" 
+        letter-spacing="-3" 
+        fill="#16141F">utilby</text>
+</svg>

@@ -18,6 +18,18 @@ export const metadata: Metadata = {
   alternates: {
     canonical: "/tools/json-formatter",
   },
+  openGraph: {
+    title: "JSON Formatter – Format, Validate & Prettify JSON Online | Utilby",
+    description:
+      "Clean, format, indent, minify, and validate JSON data online with pinpoint syntax error detection. 100% private client-side JSON tool.",
+    url: "https://utilby.com/tools/json-formatter",
+    type: "website",
+    images: [{ url: "https://utilby.com/og/tools/json-formatter.png", width: 1200, height: 630 }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    images: ["https://utilby.com/og/tools/json-formatter.png"],
+  },
 };
 
 export default function JsonFormatterPage() {

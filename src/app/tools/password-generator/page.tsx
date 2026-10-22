@@ -17,6 +17,18 @@ export const metadata: Metadata = {
   alternates: {
     canonical: "/tools/password-generator",
   },
+  openGraph: {
+    title: "Password Generator – Secure Random Password Generator Online | Utilby",
+    description:
+      "Generate strong, cryptographically secure random passwords client-side with customizable length, symbols, and Shannon entropy meter. 100% private.",
+    url: "https://utilby.com/tools/password-generator",
+    type: "website",
+    images: [{ url: "https://utilby.com/og/tools/password-generator.png", width: 1200, height: 630 }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    images: ["https://utilby.com/og/tools/password-generator.png"],
+  },
 };
 
 export default function PasswordGeneratorPage() {

@@ -17,6 +17,18 @@ export const metadata: Metadata = {
   alternates: {
     canonical: "/tools/word-counter",
   },
+  openGraph: {
+    title: "Word Counter – Count Words, Characters & Reading Time Online | Utilby",
+    description:
+      "Accurately count words, characters, sentences, paragraphs, reading time, and keyword density in real-time. Free client-side text analyzer.",
+    url: "https://utilby.com/tools/word-counter",
+    type: "website",
+    images: [{ url: "https://utilby.com/og/tools/word-counter.png", width: 1200, height: 630 }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    images: ["https://utilby.com/og/tools/word-counter.png"],
+  },
 };
 
 export default function WordCounterPage() {

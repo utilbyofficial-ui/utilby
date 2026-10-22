@@ -24,6 +24,11 @@ export const metadata: Metadata = {
     description: "Resize images for Instagram, YouTube, Facebook and more. Batch resize in your browser — nothing is uploaded.",
     url: "https://utilby.com/tools/image-resizer",
     type: "website",
+    images: [{ url: "https://utilby.com/og/tools/image-resizer.png", width: 1200, height: 630 }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    images: ["https://utilby.com/og/tools/image-resizer.png"],
   },
 };
 

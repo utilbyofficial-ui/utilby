@@ -55,11 +55,20 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       siteName: "Utilby",
       locale: "en_US",
       type: "website",
+      images: [
+        {
+          url: `https://utilby.com/og/${data.id}-tools.png`,
+          width: 1200,
+          height: 630,
+          alt: `${data.name} – Utilby`,
+        },
+      ],
     },
     twitter: {
       card: "summary_large_image",
       title: data.seoTitle,
       description: data.seoDescription,
+      images: [`https://utilby.com/og/${data.id}-tools.png`],
     },
   };
 }

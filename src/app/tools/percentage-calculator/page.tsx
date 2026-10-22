@@ -17,6 +17,18 @@ export const metadata: Metadata = {
   alternates: {
     canonical: "/tools/percentage-calculator",
   },
+  openGraph: {
+    title: "Percentage Calculator – Free Percentage Calculator with Formulas | Utilby",
+    description:
+      "Fast and accurate percentage calculator: find X% of Y, calculate percentage change, percentage difference, and retail discount savings.",
+    url: "https://utilby.com/tools/percentage-calculator",
+    type: "website",
+    images: [{ url: "https://utilby.com/og/tools/percentage-calculator.png", width: 1200, height: 630 }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    images: ["https://utilby.com/og/tools/percentage-calculator.png"],
+  },
 };
 
 export default function PercentageCalculatorPage() {

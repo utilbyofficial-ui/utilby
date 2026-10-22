@@ -196,6 +196,7 @@ export const PDF_TOOLS: Record<string, PdfToolConfig> = {
 
 export function pdfToolMetadata(slug: string): Metadata {
   const t = PDF_TOOLS[slug];
+  const ogImage = `https://utilby.com/og/tools/${t.slug}.png`;
   return {
     title: t.metaTitle,
     description: t.metaDescription,
@@ -206,6 +207,20 @@ export function pdfToolMetadata(slug: string): Metadata {
       description: t.metaDescription,
       url: `https://utilby.com/tools/${t.slug}`,
       type: "website",
+      images: [
+        {
+          url: ogImage,
+          width: 1200,
+          height: 630,
+          alt: `${t.title} – Utilby`,
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: t.metaTitle,
+      description: t.metaDescription,
+      images: [ogImage],
     },
   };
 }

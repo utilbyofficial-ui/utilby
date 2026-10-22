@@ -18,6 +18,18 @@ export const metadata: Metadata = {
   alternates: {
     canonical: "/tools/text-case-converter",
   },
+  openGraph: {
+    title: "Text Case Converter – Convert Uppercase, Lowercase & Title Case Online | Utilby",
+    description:
+      "Instantly convert text to UPPERCASE, lowercase, Title Case, Sentence case, and Capitalized words. Clean spaces and remove duplicate lines for free.",
+    url: "https://utilby.com/tools/text-case-converter",
+    type: "website",
+    images: [{ url: "https://utilby.com/og/tools/text-case-converter.png", width: 1200, height: 630 }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    images: ["https://utilby.com/og/tools/text-case-converter.png"],
+  },
 };
 
 export default function TextCaseConverterPage() {
