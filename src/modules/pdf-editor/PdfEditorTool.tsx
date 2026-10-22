@@ -549,6 +549,7 @@ export function PdfEditorTool() {
     if (!isInteracting.current) return;
     isInteracting.current = false;
     const pageIndex = currentPage - 1;
+    const { normX, normY } = getNormalizedCoords(e);
 
     try {
       (e.target as HTMLElement).releasePointerCapture(e.pointerId);
@@ -575,164 +576,191 @@ export function PdfEditorTool() {
       return;
     }
 
-    if (liveBox && (liveBox.normW > 0.008 || liveBox.normH > 0.008)) {
-      // 1. Drag to Erase & Replace ANY text (Universal for scanned, image, or complex fonts)
-      if (activeTool === "editText") {
-        if (canvasRef.current) {
-          const sampledBg = sampleCanvasBorderColor(
-            canvasRef.current,
-            liveBox.normX,
-            liveBox.normY,
-            liveBox.normW,
-            liveBox.normH
-          );
+    const startPos = dragStartPos.current;
+    const boxX = startPos ? Math.min(startPos.x, normX) : normX;
+    const boxY = startPos ? Math.min(startPos.y, normY) : normY;
+    const boxW = startPos ? Math.abs(normX - startPos.x) : 0;
+    const boxH = startPos ? Math.abs(normY - startPos.y) : 0;
+    const isDragBox = boxW > 0.008 || boxH > 0.008;
 
-          // Matching background whiteout mask
-          const patchWhiteout: WhiteoutAnnotation = {
-            id: newAnnotationId("erase-txt"),
-            pageIndex,
-            type: "whiteout",
-            normX: liveBox.normX,
-            normY: liveBox.normY,
-            normW: liveBox.normW,
-            normH: liveBox.normH,
-            color: sampledBg,
-          };
+    // 1. Edit Text Tool: Drag to Replace ANY text, OR single click to edit
+    if (activeTool === "editText") {
+      if (isDragBox && canvasRef.current) {
+        // Dragged over an area: sample background and erase & replace
+        const sampledBg = sampleCanvasBorderColor(
+          canvasRef.current,
+          boxX,
+          boxY,
+          boxW,
+          boxH
+        );
 
-          const calculatedSize = Math.max(
-            12,
-            Math.min(36, Math.round(liveBox.normH * (canvasRef.current.height / (window.devicePixelRatio || 1)) * 0.75))
-          );
+        const patchWhiteout: WhiteoutAnnotation = {
+          id: newAnnotationId("erase-txt"),
+          pageIndex,
+          type: "whiteout",
+          normX: boxX,
+          normY: boxY,
+          normW: boxW,
+          normH: boxH,
+          color: sampledBg,
+        };
 
-          // New replacement text
+        const calculatedSize = Math.max(
+          12,
+          Math.min(36, Math.round(boxH * (canvasRef.current.height / (window.devicePixelRatio || 1)) * 0.75))
+        );
+
+        const newText: TextAnnotation = {
+          id: newAnnotationId("rep-txt"),
+          pageIndex,
+          type: "text",
+          normX: boxX,
+          normY: boxY,
+          text: "Edit text here",
+          fontSize: calculatedSize || fontSize,
+          color: textColor,
+          fontFamily,
+          isBold,
+        };
+
+        pushHistory([...annotations, patchWhiteout, newText]);
+        setSelectedId(newText.id);
+        setActiveTool("select");
+        showNotification("Text area erased with matching background color! Type your replacement text.");
+      } else {
+        // Single click: Check if clicked on a detected text item or place a new text box
+        const hit = pageExistingTexts.find(
+          (t) =>
+            normX >= t.origNormX - 0.01 &&
+            normX <= t.origNormX + t.origNormW + 0.01 &&
+            normY >= t.origNormY - 0.01 &&
+            normY <= t.origNormY + t.origNormH + 0.01
+        );
+
+        if (hit) {
+          setActiveEditingTextId(hit.id);
+          setSelectedId(hit.id);
+          handleUpdateExistingText(hit.id, { isEdited: true });
+        } else {
+          // Place an editable text box at the clicked spot
           const newText: TextAnnotation = {
-            id: newAnnotationId("rep-txt"),
-            pageIndex,
-            type: "text",
-            normX: liveBox.normX,
-            normY: liveBox.normY,
-            text: "Edit text here",
-            fontSize: calculatedSize || fontSize,
+            ...createDefaultTextAnnotation(pageIndex, normX, normY, "Type text here"),
+            fontSize,
             color: textColor,
             fontFamily,
             isBold,
           };
-
-          pushHistory([...annotations, patchWhiteout, newText]);
+          pushHistory([...annotations, newText]);
           setSelectedId(newText.id);
           setActiveTool("select");
-          showNotification("Text erased with matching background color! Type your replacement text.");
         }
       }
-      // 2. Cut & Move Element with smart background fill or duplicate
-      else if (activeTool === "moveElement") {
-        if (canvasRef.current) {
-          const croppedDataUrl = captureCanvasRegion(
+    }
+    // 2. Cut & Move Element
+    else if (activeTool === "moveElement" && isDragBox) {
+      if (canvasRef.current) {
+        const croppedDataUrl = captureCanvasRegion(
+          canvasRef.current,
+          boxX,
+          boxY,
+          boxW,
+          boxH
+        );
+
+        if (croppedDataUrl) {
+          const sampledBg = sampleCanvasBorderColor(
             canvasRef.current,
-            liveBox.normX,
-            liveBox.normY,
-            liveBox.normW,
-            liveBox.normH
+            boxX,
+            boxY,
+            boxW,
+            boxH
           );
 
-          if (croppedDataUrl) {
-            // Sample perimeter background color so there is NEVER a harsh white hole!
-            const sampledBg = sampleCanvasBorderColor(
-              canvasRef.current,
-              liveBox.normX,
-              liveBox.normY,
-              liveBox.normW,
-              liveBox.normH
-            );
+          const movableImage: ImageAnnotation = {
+            id: newAnnotationId("cut-img"),
+            pageIndex,
+            type: "image",
+            normX: boxX,
+            normY: boxY,
+            normW: boxW,
+            normH: boxH,
+            dataUrl: croppedDataUrl,
+          };
 
-            // Create movable image annotation
-            const movableImage: ImageAnnotation = {
-              id: newAnnotationId("cut-img"),
+          if (cutFillMode === "match") {
+            const originalPatch: WhiteoutAnnotation = {
+              id: newAnnotationId("match-patch"),
               pageIndex,
-              type: "image",
-              normX: liveBox.normX,
-              normY: liveBox.normY,
-              normW: liveBox.normW,
-              normH: liveBox.normH,
-              dataUrl: croppedDataUrl,
+              type: "whiteout",
+              normX: boxX,
+              normY: boxY,
+              normW: boxW,
+              normH: boxH,
+              color: sampledBg,
             };
-
-            if (cutFillMode === "match") {
-              // Fill original hole with exact sampled background color
-              const originalPatch: WhiteoutAnnotation = {
-                id: newAnnotationId("match-patch"),
-                pageIndex,
-                type: "whiteout",
-                normX: liveBox.normX,
-                normY: liveBox.normY,
-                normW: liveBox.normW,
-                normH: liveBox.normH,
-                color: sampledBg,
-              };
-              pushHistory([...annotations, originalPatch, movableImage]);
-              showNotification(`Element detached! Background seamlessly matched (${sampledBg}). Drag anywhere to move.`);
-            } else if (cutFillMode === "white") {
-              const originalPatch: WhiteoutAnnotation = {
-                id: newAnnotationId("white-patch"),
-                pageIndex,
-                type: "whiteout",
-                normX: liveBox.normX,
-                normY: liveBox.normY,
-                normW: liveBox.normW,
-                normH: liveBox.normH,
-                color: "#FFFFFF",
-              };
-              pushHistory([...annotations, originalPatch, movableImage]);
-              showNotification("Element detached with white background patch. Drag anywhere to move.");
-            } else {
-              // Duplicate / Clone: do NOT erase original at all!
-              pushHistory([...annotations, movableImage]);
-              showNotification("Element duplicated! Drag anywhere to position the copy.");
-            }
-
-            setSelectedId(movableImage.id);
-            setActiveTool("select");
+            pushHistory([...annotations, originalPatch, movableImage]);
+            showNotification(`Element detached! Background seamlessly matched (${sampledBg}). Drag anywhere to move.`);
+          } else if (cutFillMode === "white") {
+            const originalPatch: WhiteoutAnnotation = {
+              id: newAnnotationId("white-patch"),
+              pageIndex,
+              type: "whiteout",
+              normX: boxX,
+              normY: boxY,
+              normW: boxW,
+              normH: boxH,
+              color: "#FFFFFF",
+            };
+            pushHistory([...annotations, originalPatch, movableImage]);
+            showNotification("Element detached with white background patch. Drag anywhere to move.");
+          } else {
+            pushHistory([...annotations, movableImage]);
+            showNotification("Element duplicated! Drag anywhere to position the copy.");
           }
+
+          setSelectedId(movableImage.id);
+          setActiveTool("select");
         }
-      } else if (activeTool === "highlight") {
-        const newHl: HighlightAnnotation = {
-          id: newAnnotationId("hl"),
-          pageIndex,
-          type: "highlight",
-          normX: liveBox.normX,
-          normY: liveBox.normY,
-          normW: Math.max(0.01, liveBox.normW),
-          normH: Math.max(0.01, liveBox.normH),
-          color: highlightColor,
-          opacity: 0.35,
-        };
-        pushHistory([...annotations, newHl]);
-      } else if (activeTool === "whiteout") {
-        const newWo: WhiteoutAnnotation = {
-          id: newAnnotationId("wo"),
-          pageIndex,
-          type: "whiteout",
-          normX: liveBox.normX,
-          normY: liveBox.normY,
-          normW: Math.max(0.01, liveBox.normW),
-          normH: Math.max(0.01, liveBox.normH),
-          color: "#FFFFFF",
-        };
-        pushHistory([...annotations, newWo]);
-      } else if (activeTool === "rect" || activeTool === "circle") {
-        const newShape: ShapeAnnotation = {
-          id: newAnnotationId("shp"),
-          pageIndex,
-          type: activeTool,
-          normX: liveBox.normX,
-          normY: liveBox.normY,
-          normW: Math.max(0.01, liveBox.normW),
-          normH: Math.max(0.01, liveBox.normH),
-          strokeColor: shapeColor,
-          strokeWidth,
-        };
-        pushHistory([...annotations, newShape]);
       }
+    } else if (activeTool === "highlight" && isDragBox) {
+      const newHl: HighlightAnnotation = {
+        id: newAnnotationId("hl"),
+        pageIndex,
+        type: "highlight",
+        normX: boxX,
+        normY: boxY,
+        normW: Math.max(0.01, boxW),
+        normH: Math.max(0.01, boxH),
+        color: highlightColor,
+        opacity: 0.35,
+      };
+      pushHistory([...annotations, newHl]);
+    } else if (activeTool === "whiteout" && isDragBox) {
+      const newWo: WhiteoutAnnotation = {
+        id: newAnnotationId("wo"),
+        pageIndex,
+        type: "whiteout",
+        normX: boxX,
+        normY: boxY,
+        normW: Math.max(0.01, boxW),
+        normH: Math.max(0.01, boxH),
+        color: "#FFFFFF",
+      };
+      pushHistory([...annotations, newWo]);
+    } else if ((activeTool === "rect" || activeTool === "circle") && isDragBox) {
+      const newShape: ShapeAnnotation = {
+        id: newAnnotationId("shp"),
+        pageIndex,
+        type: activeTool,
+        normX: boxX,
+        normY: boxY,
+        normW: Math.max(0.01, boxW),
+        normH: Math.max(0.01, boxH),
+        strokeColor: shapeColor,
+        strokeWidth,
+      };
+      pushHistory([...annotations, newShape]);
     }
 
     setLiveBox(null);
