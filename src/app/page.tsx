@@ -15,6 +15,13 @@ import {
   QrCode,
   Combine,
   FileArchive,
+  Scissors,
+  LayoutGrid,
+  RotateCw,
+  FileMinus,
+  FileOutput,
+  Images,
+  PenLine,
   ArrowRight,
   Shield,
   Zap,
@@ -65,6 +72,20 @@ export default function HomePage() {
         return <Combine className="h-5 w-5 text-orange-600" />;
       case "FileArchive":
         return <FileArchive className="h-5 w-5 text-red-600" />;
+      case "Scissors":
+        return <Scissors className="h-5 w-5 text-red-500" />;
+      case "LayoutGrid":
+        return <LayoutGrid className="h-5 w-5 text-orange-500" />;
+      case "RotateCw":
+        return <RotateCw className="h-5 w-5 text-amber-600" />;
+      case "FileMinus":
+        return <FileMinus className="h-5 w-5 text-rose-600" />;
+      case "FileOutput":
+        return <FileOutput className="h-5 w-5 text-red-600" />;
+      case "Images":
+        return <Images className="h-5 w-5 text-pink-600" />;
+      case "PenLine":
+        return <PenLine className="h-5 w-5 text-indigo-600" />;
       default:
         return <Zap className="h-5 w-5 text-indigo-600" />;
     }
