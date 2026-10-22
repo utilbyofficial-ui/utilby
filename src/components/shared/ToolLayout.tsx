@@ -84,7 +84,7 @@ export function ToolLayout({
         <AdSlot slotId={`tool-slot-${toolId}`} format="horizontal-banner" />
 
         {/* Helpful content */}
-        <div className="mt-4 grid grid-cols-1 gap-10 lg:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="mt-16 grid grid-cols-1 gap-10 lg:grid-cols-[minmax(0,1fr)_340px]">
           <div className="min-w-0 space-y-14">
             <section aria-labelledby="how-to">
               <h2 id="how-to" className="font-display text-3xl font-bold tracking-tight text-ink">

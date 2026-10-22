@@ -4,6 +4,7 @@ import "@fontsource-variable/bricolage-grotesque";
 import "./globals.css";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
+import { ADS_ENABLED, ADSENSE_CLIENT } from "@/lib/ads-config";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://utilby.com"),
@@ -72,6 +73,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="scroll-smooth">
+      {ADS_ENABLED && (
+        <head>
+          <script async src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${ADSENSE_CLIENT}`} crossOrigin="anonymous" />
+        </head>
+      )}
       <body className="min-h-screen flex flex-col font-sans bg-white text-ink antialiased selection:bg-sun selection:text-ink">
         <Header />
         <main className="flex-1">{children}</main>
