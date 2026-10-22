@@ -236,7 +236,8 @@ export const TOOLS: ToolMeta[] = [
     shortDescription: "Add text, images, annotations, and signatures to any PDF.",
     longDescription: "Full-featured in-browser PDF editor with annotations and signatures.",
     iconName: "PenLine",
-    isReady: false,
+    isReady: true,
+    featured: true,
     keywords: ["pdf editor", "edit pdf", "sign pdf", "add text to pdf", "annotate pdf"],
   },
   {
