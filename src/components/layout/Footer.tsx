@@ -13,9 +13,12 @@ export function Footer() {
         <div className="grid grid-cols-1 gap-12 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
           <div>
             <Link href="/" className="flex items-center gap-2.5" aria-label="Utilby home">
-              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-white">
-                <span className="h-3.5 w-3.5 rounded-full bg-sun" />
-              </span>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/brand/concept-2-3d-isometric-icon.png"
+                alt="Utilby"
+                className="h-9 w-9 rounded-xl shadow-xs object-cover"
+              />
               <span className="font-display text-[22px] font-extrabold tracking-tight text-white">utilby</span>
             </Link>
             <p className="mt-4 max-w-xs text-sm leading-relaxed text-slate-400">

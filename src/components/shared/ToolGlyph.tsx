@@ -56,9 +56,12 @@ export function CategoryGlyph({ category, size = "lg", className }: { category: 
 export function Logo({ className }: { className?: string }) {
   return (
     <span className={cn("flex items-center gap-2.5", className)}>
-      <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-ink">
-        <span className="h-3.5 w-3.5 rounded-full bg-sun" />
-      </span>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src="/brand/concept-2-3d-isometric-icon.png"
+        alt="Utilby"
+        className="h-9 w-9 rounded-xl shadow-xs object-cover"
+      />
       <span className="font-display text-[22px] font-extrabold tracking-tight text-ink">utilby</span>
     </span>
   );
