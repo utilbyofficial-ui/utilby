@@ -42,7 +42,7 @@ export function Header() {
 
   React.useEffect(() => {
     const onScroll = () => {
-      setScrolled(window.scrollY > 4);
+      setScrolled(window.scrollY > 10);
       setHeroScrolledPast(window.scrollY > 260);
     };
     onScroll();
@@ -94,11 +94,18 @@ export function Header() {
   return (
     <header
       className={cn(
-        "sticky top-0 z-40 w-full bg-white/90 backdrop-blur-md transition-shadow",
-        scrolled ? "shadow-[0_1px_0_0_#ECEAF3]" : ""
+        "sticky top-0 z-40 w-full transition-all duration-300 ease-out",
+        scrolled ? "pt-2 sm:pt-3 px-3 sm:px-6" : "pt-0 px-0"
       )}
     >
-      <div className="mx-auto flex h-16 max-w-[1240px] items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
+      <div
+        className={cn(
+          "mx-auto flex items-center justify-between gap-4 transition-all duration-300 ease-out",
+          scrolled
+            ? "h-14 max-w-[1220px] rounded-2xl bg-white/85 px-4 shadow-[0_8px_30px_rgb(0,0,0,0.06)] backdrop-blur-xl border border-slate-200/80 sm:px-6"
+            : "h-16 max-w-[1240px] bg-white/90 backdrop-blur-md px-4 sm:px-6 lg:px-8 border-b border-slate-100"
+        )}
+      >
         <Link href="/" aria-label="Utilby home" className="shrink-0">
           <Logo />
         </Link>
@@ -141,7 +148,14 @@ export function Header() {
 
       {/* Mobile menu */}
       {menuOpen && (
-        <div className="animate-fade-up border-t border-slate-200 bg-white px-4 pb-6 pt-3 shadow-lift md:hidden">
+        <div
+          className={cn(
+            "animate-fade-up bg-white px-4 pb-6 pt-3 shadow-lift md:hidden transition-all",
+            scrolled
+              ? "mx-auto mt-2 max-w-[1220px] rounded-2xl border border-slate-200/80"
+              : "border-t border-slate-200"
+          )}
+        >
           <nav aria-label="Mobile" className="flex flex-wrap gap-2">
             {NAV.map((n) => (
               <Link key={n.href} href={n.href} className="rounded-full bg-slate-100 px-4 py-2.5 text-sm font-semibold text-ink">
