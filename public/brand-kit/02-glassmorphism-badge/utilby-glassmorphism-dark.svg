@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" fill="none">
+  <!-- Utilby Master Vector - Frosted Glassmorphism Badge (Dark Background) -->
+  <defs>
+    <linearGradient id="canvasBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1B1827"/>
+      <stop offset="100%" stop-color="#0E0C15"/>
+    </linearGradient>
+    <linearGradient id="glassFill" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.16"/>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0.04"/>
+    </linearGradient>
+    <linearGradient id="glassBorder" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.45"/>
+      <stop offset="50%" stop-color="#FFFFFF" stop-opacity="0.12"/>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0.25"/>
+    </linearGradient>
+    <linearGradient id="sunGlow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFDB70"/>
+      <stop offset="100%" stop-color="#FFB31A"/>
+    </linearGradient>
+    <radialGradient id="sunAmbient" cx="50%" cy="53%" r="45%">
+      <stop offset="0%" stop-color="#FFC53D" stop-opacity="0.25"/>
+      <stop offset="100%" stop-color="#FFC53D" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="glassShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="16" stdDeviation="24" flood-color="#000000" flood-opacity="0.45"/>
+    </filter>
+  </defs>
+
+  <!-- Deep Dark Canvas -->
+  <rect width="512" height="512" rx="128" fill="url(#canvasBg)"/>
+
+  <!-- Ambient Light Behind Glass -->
+  <rect x="56" y="56" width="400" height="400" rx="100" fill="url(#sunAmbient)"/>
+
+  <!-- Frosted Glass Plate -->
+  <rect x="56" y="56" width="400" height="400" rx="100" 
+        fill="url(#glassFill)" 
+        stroke="url(#glassBorder)" 
+        stroke-width="3" 
+        filter="url(#glassShadow)"/>
+
+  <!-- Subtle Inner Glass Top Sheen -->
+  <path d="M72 130 C72 85 105 70 156 70 H356 C407 70 440 85 440 130 C340 115 170 115 72 130 Z" 
+        fill="#FFFFFF" 
+        fill-opacity="0.08"/>
+
+  <!-- U Monogram Inside Glass -->
+  <path d="M168 160 V268 C168 317 207 356 256 356 C305 356 344 317 344 268 V160" 
+        stroke="#FFFFFF" 
+        stroke-width="56" 
+        stroke-linecap="round"/>
+
+  <!-- Glowing Sun Core -->
+  <circle cx="256" cy="268" r="52" fill="url(#sunGlow)"/>
+</svg>

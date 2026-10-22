@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 700" width="600" height="700" fill="none">
+  <!-- Utilby Master Vector - Vertical Stacked Lockup (White for Dark Backgrounds) -->
+  <defs>
+    <linearGradient id="sunVertWhite" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFDB70"/>
+      <stop offset="100%" stop-color="#FFB31A"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Top Centered Icon -->
+  <g transform="translate(130, 40)">
+    <path d="M72 64 V188 C72 254 126 308 192 308 C258 308 312 254 312 188 V64" 
+          stroke="#FFFFFF" 
+          stroke-width="68" 
+          stroke-linecap="round"/>
+    <circle cx="192" cy="188" r="60" fill="url(#sunVertWhite)"/>
+  </g>
+
+  <!-- Centered Stylish Brand Name "utilby" -->
+  <text x="300" y="520" 
+        text-anchor="middle"
+        font-family="'Bricolage Grotesque', 'DM Sans', system-ui, -apple-system, sans-serif" 
+        font-size="120" 
+        font-weight="800" 
+        letter-spacing="-4" 
+        fill="#FFFFFF">utilby</text>
+
+  <!-- Subtitle Pill / Tagline -->
+  <text x="300" y="585" 
+        text-anchor="middle"
+        font-family="'DM Sans', system-ui, -apple-system, sans-serif" 
+        font-size="22" 
+        font-weight="700" 
+        letter-spacing="5" 
+        fill="#94A3B8">FREE UTILITY TOOLS</text>
+</svg>
