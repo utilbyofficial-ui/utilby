@@ -8,6 +8,13 @@ export interface JsonValidationResult {
   output?: string;
 }
 
+export interface JsonStats {
+  sizeBytes: number;
+  keyCount: number;
+  maxDepth: number;
+  type: "object" | "array" | "primitive" | "empty";
+}
+
 export function parseJsonError(errorMessage: string, input: string): { line?: number; column?: number } {
   // Typical modern V8 error format: "Unexpected token 'x', ... at position 42"
   const positionMatch = errorMessage.match(/at position (\d+)/i);
@@ -32,7 +39,7 @@ export function parseJsonError(errorMessage: string, input: string): { line?: nu
   return {};
 }
 
-export function validateAndFormatJson(input: string, indent: number = 2): JsonValidationResult {
+export function validateAndFormatJson(input: string, indent: number | string = 2): JsonValidationResult {
   const trimmed = input.trim();
   if (!trimmed) {
     return { isValid: true, output: "" };
@@ -40,7 +47,8 @@ export function validateAndFormatJson(input: string, indent: number = 2): JsonVa
 
   try {
     const parsed = JSON.parse(trimmed);
-    const formatted = JSON.stringify(parsed, null, indent);
+    const indentValue = typeof indent === "string" ? indent : indent;
+    const formatted = JSON.stringify(parsed, null, indentValue);
     return {
       isValid: true,
       output: formatted,
@@ -88,9 +96,66 @@ export function minifyJson(input: string): JsonValidationResult {
   }
 }
 
+export function repairCommonJsonMistakes(input: string): string {
+  let repaired = input.trim();
+  // Remove single line comments
+  repaired = repaired.replace(/\/\/.*$/gm, "");
+  // Replace single-quoted property keys: 'key': -> "key":
+  repaired = repaired.replace(/'([a-zA-Z0-9_$]+)'\s*:/g, '"$1":');
+  // Replace single-quoted values: : 'value' -> : "value"
+  repaired = repaired.replace(/:\s*'([^']*)'/g, ': "$1"');
+  // Remove trailing commas in objects and arrays: , } -> } and , ] -> ]
+  repaired = repaired.replace(/,\s*([}\]])/g, "$1");
+  return repaired;
+}
+
+export function analyzeJsonStructure(input: string): JsonStats {
+  const sizeBytes = new TextEncoder().encode(input).length;
+  const trimmed = input.trim();
+  if (!trimmed) {
+    return { sizeBytes: 0, keyCount: 0, maxDepth: 0, type: "empty" };
+  }
+
+  try {
+    const parsed = JSON.parse(trimmed);
+    let keyCount = 0;
+    let maxDepth = 0;
+
+    function traverse(val: unknown, currentDepth: number) {
+      if (currentDepth > maxDepth) maxDepth = currentDepth;
+      if (val && typeof val === "object") {
+        if (Array.isArray(val)) {
+          for (const item of val) {
+            traverse(item, currentDepth + 1);
+          }
+        } else {
+          const keys = Object.keys(val as Record<string, unknown>);
+          keyCount += keys.length;
+          for (const k of keys) {
+            traverse((val as Record<string, unknown>)[k], currentDepth + 1);
+          }
+        }
+      }
+    }
+
+    traverse(parsed, 1);
+
+    const type = Array.isArray(parsed) ? "array" : typeof parsed === "object" && parsed !== null ? "object" : "primitive";
+
+    return {
+      sizeBytes,
+      keyCount,
+      maxDepth,
+      type,
+    };
+  } catch {
+    return { sizeBytes, keyCount: 0, maxDepth: 0, type: "empty" };
+  }
+}
+
 export const SAMPLE_JSON = JSON.stringify(
   {
-    name: "Global Free Utility Tools Network",
+    name: "Utilby Network",
     version: "1.0.0",
     features: ["Fast", "Client-Side", "Privacy-First", "Free"],
     settings: {
@@ -98,8 +163,10 @@ export const SAMPLE_JSON = JSON.stringify(
       offlineSupported: true,
       maxUploadMb: 50,
     },
-    toolsCount: 10,
-    active: true,
+    analytics: {
+      enabled: true,
+      cookieFree: true,
+    },
   },
   null,
   2

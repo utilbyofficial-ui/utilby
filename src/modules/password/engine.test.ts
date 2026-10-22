@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   generateSecureRandomPassword,
   calculatePasswordEntropy,
+  generatePassphrase,
   DEFAULT_PASSWORD_OPTIONS,
 } from "./engine";
 
@@ -26,5 +27,11 @@ describe("Password Generator Engine", () => {
     });
     // Check ambiguous chars: 'O', '0', 'l', '1', 'I'
     expect(res.password).not.toMatch(/[O0l1I{}[\]()/\'`~,;:.<>]/);
+  });
+
+  it("generates memorable passphrases", () => {
+    const passphrase = generatePassphrase(4, "-", true, true);
+    const parts = passphrase.split("-");
+    expect(parts.length).toBe(5); // 4 words + 1 number
   });
 });

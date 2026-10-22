@@ -6,10 +6,33 @@ export interface WordStats {
   paragraphs: number;
   readingTimeMinutes: number;
   speakingTimeMinutes: number;
+  readingTimeFormatted: string;
+  speakingTimeFormatted: string;
   topKeywords: { word: string; count: number; percentage: number }[];
 }
 
-export function analyzeText(text: string): WordStats {
+export const COMMON_STOP_WORDS = new Set([
+  "the", "and", "a", "an", "in", "to", "of", "for", "with", "at", "by", "from", "up",
+  "about", "into", "over", "after", "is", "are", "was", "were", "be", "been", "being",
+  "have", "has", "had", "do", "does", "did", "but", "or", "as", "if", "when", "than",
+  "so", "no", "not", "only", "own", "same", "can", "will", "just", "don", "should", "now",
+  "it", "its", "this", "that", "these", "those", "you", "your", "he", "she", "they", "we",
+  "i", "me", "my", "our", "all", "more"
+]);
+
+export function formatTimeEstimate(words: number, wpm: number): string {
+  if (words <= 0) return "0 sec";
+  const seconds = Math.round((words / wpm) * 60);
+  if (seconds < 15) return "< 15 sec";
+  if (seconds < 45) return `~${seconds} sec`;
+  if (seconds < 90) return "~1 min";
+  const minutes = Math.round(words / wpm);
+  return `${minutes} min`;
+}
+
+export function analyzeText(text: string, options: { filterStopWords?: boolean } = {}): WordStats {
+  const filterStopWords = options.filterStopWords ?? false;
+
   if (!text || text.trim() === "") {
     return {
       words: 0,
@@ -19,6 +42,8 @@ export function analyzeText(text: string): WordStats {
       paragraphs: 0,
       readingTimeMinutes: 0,
       speakingTimeMinutes: 0,
+      readingTimeFormatted: "0 sec",
+      speakingTimeFormatted: "0 sec",
       topKeywords: [],
     };
   }
@@ -48,15 +73,20 @@ export function analyzeText(text: string): WordStats {
 
   // Reading time: ~200 words per minute
   const readingTimeMinutes = Math.ceil(words / 200);
+  const readingTimeFormatted = formatTimeEstimate(words, 200);
 
   // Speaking time: ~130 words per minute
   const speakingTimeMinutes = Math.ceil(words / 130);
+  const speakingTimeFormatted = formatTimeEstimate(words, 130);
 
-  // Keyword density (words > 2 characters)
+  // Keyword density
   const wordFrequency: Record<string, number> = {};
   for (const rawWord of wordsArray) {
     const word = rawWord.toLowerCase();
     if (word.length > 2) {
+      if (filterStopWords && COMMON_STOP_WORDS.has(word)) {
+        continue;
+      }
       wordFrequency[word] = (wordFrequency[word] || 0) + 1;
     }
   }
@@ -78,6 +108,8 @@ export function analyzeText(text: string): WordStats {
     paragraphs: paragraphs > 0 ? paragraphs : words > 0 ? 1 : 0,
     readingTimeMinutes,
     speakingTimeMinutes,
+    readingTimeFormatted,
+    speakingTimeFormatted,
     topKeywords: sortedKeywords,
   };
 }

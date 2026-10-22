@@ -5,6 +5,12 @@ import {
   toTitleCase,
   toSentenceCase,
   toCapitalizedWords,
+  toCamelCase,
+  toPascalCase,
+  toSnakeCase,
+  toKebabCase,
+  toConstantCase,
+  toInvertCase,
   removeExtraSpaces,
   removeDuplicateLines,
 } from "./engine";
@@ -27,6 +33,21 @@ describe("Text Case Converter Engine", () => {
 
   it("capitalizes every word", () => {
     expect(toCapitalizedWords("quick brown fox")).toBe("Quick Brown Fox");
+  });
+
+  it("converts to camelCase and PascalCase", () => {
+    expect(toCamelCase("Hello world from utilby")).toBe("helloWorldFromUtilby");
+    expect(toPascalCase("hello world from utilby")).toBe("HelloWorldFromUtilby");
+  });
+
+  it("converts to snake_case, kebab-case, and CONSTANT_CASE", () => {
+    expect(toSnakeCase("Hello World From Utilby")).toBe("hello_world_from_utilby");
+    expect(toKebabCase("Hello World From Utilby")).toBe("hello-world-from-utilby");
+    expect(toConstantCase("hello world from utilby")).toBe("HELLO_WORLD_FROM_UTILBY");
+  });
+
+  it("inverts text case", () => {
+    expect(toInvertCase("Hello World!")).toBe("hELLO wORLD!");
   });
 
   it("removes redundant whitespace", () => {

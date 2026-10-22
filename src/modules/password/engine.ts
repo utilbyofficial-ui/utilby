@@ -131,3 +131,51 @@ export function generateMultiplePasswords(count: number, options: PasswordOption
   }
   return passwords;
 }
+
+export const PASSPHRASE_WORDS = [
+  "amber", "apple", "beacon", "breeze", "bright", "cactus", "canyon", "castle",
+  "cedar", "cloud", "clover", "comet", "coral", "crystal", "delta", "desert",
+  "dolphin", "dragon", "eagle", "ember", "falcon", "feather", "forest", "galaxy",
+  "glacier", "gold", "granite", "harbor", "haven", "hawk", "horizon", "island",
+  "jasper", "journey", "jungle", "lagoon", "lantern", "leopard", "meadow", "meteor",
+  "moon", "mountain", "nebula", "oasis", "ocean", "orbit", "otter", "panther",
+  "pebble", "phoenix", "planet", "prairie", "quartz", "quiver", "radiant", "raven",
+  "river", "rover", "ruby", "safari", "sailor", "shadow", "silver", "solar",
+  "spark", "spirit", "spring", "stellar", "stream", "summit", "sunset", "thunder",
+  "tiger", "timber", "titan", "topaz", "trail", "valley", "vessel", "vortex",
+  "voyage", "walnut", "wave", "whisper", "willow", "winter", "wizard", "zenith"
+];
+
+export function generatePassphrase(
+  wordCount: number = 4,
+  separator: string = "-",
+  capitalize: boolean = false,
+  includeNumber: boolean = true
+): string {
+  const safeCount = Math.max(3, Math.min(8, wordCount));
+  const words: string[] = [];
+
+  const getRandomIndex = (max: number): number => {
+    if (typeof window !== "undefined" && window.crypto && window.crypto.getRandomValues) {
+      const arr = new Uint32Array(1);
+      window.crypto.getRandomValues(arr);
+      return arr[0]! % max;
+    }
+    return Math.floor(Math.random() * max);
+  };
+
+  for (let i = 0; i < safeCount; i++) {
+    let word = PASSPHRASE_WORDS[getRandomIndex(PASSPHRASE_WORDS.length)]!;
+    if (capitalize) {
+      word = word.charAt(0).toUpperCase() + word.slice(1);
+    }
+    words.push(word);
+  }
+
+  let result = words.join(separator);
+  if (includeNumber) {
+    const num = getRandomIndex(100);
+    result += `${separator}${num}`;
+  }
+  return result;
+}

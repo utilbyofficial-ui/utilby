@@ -26,6 +26,60 @@ export function toCapitalizedWords(text: string): string {
   return text.replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
+function getWords(text: string): string[] {
+  return text
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/[_\-]+/g, " ")
+    .split(/[^a-zA-Z0-9]+/g)
+    .filter(Boolean);
+}
+
+export function toCamelCase(text: string): string {
+  const words = getWords(text);
+  if (words.length === 0) return "";
+  return words
+    .map((word, i) =>
+      i === 0
+        ? word.toLowerCase()
+        : word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+    )
+    .join("");
+}
+
+export function toPascalCase(text: string): string {
+  const words = getWords(text);
+  return words
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join("");
+}
+
+export function toSnakeCase(text: string): string {
+  return getWords(text)
+    .map((w) => w.toLowerCase())
+    .join("_");
+}
+
+export function toKebabCase(text: string): string {
+  return getWords(text)
+    .map((w) => w.toLowerCase())
+    .join("-");
+}
+
+export function toConstantCase(text: string): string {
+  return getWords(text)
+    .map((w) => w.toUpperCase())
+    .join("_");
+}
+
+export function toInvertCase(text: string): string {
+  return text
+    .split("")
+    .map((char) =>
+      char === char.toUpperCase() ? char.toLowerCase() : char.toUpperCase()
+    )
+    .join("");
+}
+
 export function removeExtraSpaces(text: string): string {
   return text
     .split("\n")

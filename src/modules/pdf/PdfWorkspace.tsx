@@ -358,6 +358,9 @@ export function PdfWorkspace({ mode = "organize" }: PdfWorkspaceProps) {
       } else if (mod && e.key.toLowerCase() === "a" && pages.length) {
         e.preventDefault();
         setSelected(new Set(pages.map((p) => p.id)));
+      } else if (e.key === "Escape" && selectedIds.size) {
+        e.preventDefault();
+        setSelected(new Set());
       }
     };
     window.addEventListener("keydown", onKey);

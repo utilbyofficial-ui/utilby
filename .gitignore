@@ -26,6 +26,9 @@ yarn-error.log*
 # local env files
 .env*.local
 
+# local unzipped archives
+public/brand-kit/utilby-brand-kit-master/
+
 # vercel
 .vercel
 
