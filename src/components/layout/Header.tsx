@@ -36,9 +36,14 @@ export function Header() {
   const [query, setQuery] = React.useState("");
   const [active, setActive] = React.useState(0);
   const [scrolled, setScrolled] = React.useState(false);
+  const [heroScrolledPast, setHeroScrolledPast] = React.useState(false);
+  const isHomepage = pathname === "/";
 
   React.useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 4);
+    const onScroll = () => {
+      setScrolled(window.scrollY > 4);
+      setHeroScrolledPast(window.scrollY > 260);
+    };
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
@@ -109,7 +114,12 @@ export function Header() {
           <button
             type="button"
             onClick={() => setSearchOpen(true)}
-            className="flex h-10 items-center gap-2.5 rounded-full bg-slate-100 pl-3.5 pr-2 text-sm text-slate-600 transition-colors hover:bg-slate-200 hover:text-ink"
+            className={cn(
+              "flex h-10 items-center gap-2.5 rounded-full bg-slate-100 pl-3.5 pr-2 text-sm text-slate-600 transition-all duration-200 hover:bg-slate-200 hover:text-ink",
+              (!isHomepage || heroScrolledPast)
+                ? "opacity-100 translate-y-0 pointer-events-auto"
+                : "opacity-0 -translate-y-1 pointer-events-none invisible"
+            )}
             aria-label="Search tools"
           >
             <Search className="h-4 w-4" />
