@@ -1,0 +1,6 @@
+<!-- Option 2: Dark Ink Squircle Badge with White U + Warm Gold Sun -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" fill="none">
+  <rect x="2" y="2" width="60" height="60" rx="16" fill="#16141F" stroke="#2D2A3D" stroke-width="2"/>
+  <path d="M17 16 V32 C17 40.3 23.7 47 32 47 C40.3 47 47 40.3 47 32 V16" stroke="#FFFFFF" stroke-width="9.5" stroke-linecap="round"/>
+  <circle cx="32" cy="32" r="8.5" fill="#FFC53D"/>
+</svg>
