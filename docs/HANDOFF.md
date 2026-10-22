@@ -33,11 +33,12 @@ Deploy: push to `main` → Cloudflare builds and serves `out/` (`wrangler.json`)
 Text: Word Counter, Text Case Converter · Developer: JSON Formatter, QR Code Generator · Calculators: Percentage · Security: Password Generator · Image: Image Compressor, Image Resizer · PDF: Merge, Split, Organize, Rotate, Delete Pages, Extract Pages, JPG to PDF, PDF to JPG, PDF Editor.
 Coming soon (registry, `isReady: false`): PDF Compressor, Watermark, Page Numbers.
 
-## PDF toolkit architecture (`src/modules/pdf/`)
+## PDF toolkit architecture (`src/modules/pdf/` and `src/modules/pdf-editor/`)
 - `pages.ts` — pure page model (move, rotate, delete, duplicate, blank pages, range parsing). Fully tested.
 - `build.ts` — builds output PDFs with **pdf-lib** (lossless page copy, image embedding, rotation). Tested in Node.
 - `image.ts` — EXIF orientation reader + image preparation for embedding.
 - `render.ts` — **PDF.js** thumbnails, lazy-loaded. Worker is served from `public/vendor/pdfjs/pdf.worker-4.10.38.min.js`. **If you upgrade `pdfjs-dist`, copy the new worker file and update `PDFJS_WORKER_SRC`** — versions must match exactly.
+- `src/modules/pdf-editor/engine.ts` — Vector PDF burning engine with `exportPdfWithAnnotations`. Parses existing text lines with `groupPdfTextItems` from PDF.js `getTextContent()`, provides in-place editable inputs, automatic background whiteout masking, drag handles for moving text anywhere, and canvas region capture (`captureCanvasRegion`) for cutting and moving existing images, signatures, or sections.
 - `PdfWorkspace.tsx` — one shared workspace used by all 7 PDF pages via `mode` prop (`merge | split | organize | rotate | delete | extract | images`). Undo/redo, drag-reorder, multi-select, split/extract with ZIP (fflate).
 - `seo.tsx` — per-page SEO copy/FAQs for every PDF route; `PdfToolPage.tsx` renders them.
 - Password-protected PDFs are not supported yet (clear error is shown).
