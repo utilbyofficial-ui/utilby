@@ -16,6 +16,7 @@ import {
   groupPdfTextItems,
   buildCombinedAnnotations,
   captureCanvasRegion,
+  sampleCanvasBorderColor,
   newAnnotationId,
   createDefaultTextAnnotation,
   createDefaultWhiteout,
@@ -58,6 +59,8 @@ import {
   GripVertical,
   Move,
   Info,
+  Copy,
+  Palette,
 } from "lucide-react";
 
 const COLOR_PRESETS = [
@@ -103,6 +106,9 @@ export function PdfEditorTool() {
 
   // Active Tool Mode
   const [activeTool, setActiveTool] = React.useState<ToolMode>("select");
+
+  // Element Cut/Move fill options
+  const [cutFillMode, setCutFillMode] = React.useState<"match" | "duplicate" | "white">("match");
 
   // Tool Specific Options
   const [textColor, setTextColor] = React.useState<string>("#16141F");
@@ -156,7 +162,7 @@ export function PdfEditorTool() {
   // Helper notification toaster
   const showNotification = (msg: string) => {
     setStatusNotification(msg);
-    setTimeout(() => setStatusNotification(null), 4500);
+    setTimeout(() => setStatusNotification(null), 5000);
   };
 
   // Push new annotation state to history
@@ -264,23 +270,24 @@ export function PdfEditorTool() {
         const page = await pdfDoc.getPage(currentPage);
         if (isCancelled) return;
 
-        // Extract existing text items if not already cached for this page
-        if (!existingTextsMap[currentPage]) {
-          try {
-            const textContent = await page.getTextContent();
-            const baseVp = page.getViewport({ scale: 1 });
-            const extracted = groupPdfTextItems(
-              textContent.items as any,
-              baseVp.width,
-              baseVp.height,
-              currentPage - 1
-            );
-            if (!isCancelled) {
-              setExistingTextsMap((prev) => ({ ...prev, [currentPage]: extracted }));
-            }
-          } catch (textErr) {
-            console.warn("Could not extract page text items:", textErr);
+        // Extract existing text items if not already extracted for this page
+        try {
+          const textContent = await page.getTextContent();
+          const baseVp = page.getViewport({ scale: 1 });
+          const extracted = groupPdfTextItems(
+            textContent.items as any,
+            baseVp.width,
+            baseVp.height,
+            currentPage - 1
+          );
+          if (!isCancelled) {
+            setExistingTextsMap((prev) => {
+              if (prev[currentPage]) return prev;
+              return { ...prev, [currentPage]: extracted };
+            });
           }
+        } catch (textErr) {
+          console.warn("Could not extract page text items:", textErr);
         }
 
         const viewport = page.getViewport({ scale: zoomScale });
@@ -327,7 +334,7 @@ export function PdfEditorTool() {
     return () => {
       isCancelled = true;
     };
-  }, [pdfDoc, currentPage, zoomScale, existingTextsMap]);
+  }, [pdfDoc, currentPage, zoomScale]);
 
   // Clean up thumbnails on unmount
   React.useEffect(() => {
@@ -354,7 +361,6 @@ export function PdfEditorTool() {
         e.preventDefault();
       } else if (e.key === "Delete" || e.key === "Backspace") {
         if (selectedId) {
-          // Check if selected is an existing text item
           const isExisting = (existingTextsMap[currentPage] || []).some((t) => t.id === selectedId);
           if (isExisting) {
             handleDeleteExistingText(selectedId);
@@ -460,7 +466,7 @@ export function PdfEditorTool() {
     const { normX, normY } = getNormalizedCoords(e);
     const pageIndex = currentPage - 1;
 
-    if (activeTool === "select" || activeTool === "editText") {
+    if (activeTool === "select") {
       setSelectedId(null);
       setActiveEditingTextId(null);
       return;
@@ -489,13 +495,14 @@ export function PdfEditorTool() {
       return;
     }
 
-    // Start drag box tools (highlight, whiteout, rect, circle, moveElement)
+    // Start drag box tools (highlight, whiteout, rect, circle, moveElement, editText)
     if (
       activeTool === "highlight" ||
       activeTool === "whiteout" ||
       activeTool === "rect" ||
       activeTool === "circle" ||
-      activeTool === "moveElement"
+      activeTool === "moveElement" ||
+      activeTool === "editText"
     ) {
       isInteracting.current = true;
       dragStartPos.current = { x: normX, y: normY };
@@ -568,9 +575,57 @@ export function PdfEditorTool() {
       return;
     }
 
-    if (liveBox && (liveBox.normW > 0.01 || liveBox.normH > 0.01)) {
-      // Cut & Move Existing Graphic / Element
-      if (activeTool === "moveElement") {
+    if (liveBox && (liveBox.normW > 0.008 || liveBox.normH > 0.008)) {
+      // 1. Drag to Erase & Replace ANY text (Universal for scanned, image, or complex fonts)
+      if (activeTool === "editText") {
+        if (canvasRef.current) {
+          const sampledBg = sampleCanvasBorderColor(
+            canvasRef.current,
+            liveBox.normX,
+            liveBox.normY,
+            liveBox.normW,
+            liveBox.normH
+          );
+
+          // Matching background whiteout mask
+          const patchWhiteout: WhiteoutAnnotation = {
+            id: newAnnotationId("erase-txt"),
+            pageIndex,
+            type: "whiteout",
+            normX: liveBox.normX,
+            normY: liveBox.normY,
+            normW: liveBox.normW,
+            normH: liveBox.normH,
+            color: sampledBg,
+          };
+
+          const calculatedSize = Math.max(
+            12,
+            Math.min(36, Math.round(liveBox.normH * (canvasRef.current.height / (window.devicePixelRatio || 1)) * 0.75))
+          );
+
+          // New replacement text
+          const newText: TextAnnotation = {
+            id: newAnnotationId("rep-txt"),
+            pageIndex,
+            type: "text",
+            normX: liveBox.normX,
+            normY: liveBox.normY,
+            text: "Edit text here",
+            fontSize: calculatedSize || fontSize,
+            color: textColor,
+            fontFamily,
+            isBold,
+          };
+
+          pushHistory([...annotations, patchWhiteout, newText]);
+          setSelectedId(newText.id);
+          setActiveTool("select");
+          showNotification("Text erased with matching background color! Type your replacement text.");
+        }
+      }
+      // 2. Cut & Move Element with smart background fill or duplicate
+      else if (activeTool === "moveElement") {
         if (canvasRef.current) {
           const croppedDataUrl = captureCanvasRegion(
             canvasRef.current,
@@ -581,18 +636,16 @@ export function PdfEditorTool() {
           );
 
           if (croppedDataUrl) {
-            // 1. Whiteout original location
-            const originalWhiteout: WhiteoutAnnotation = {
-              id: newAnnotationId("cut-wo"),
-              pageIndex,
-              type: "whiteout",
-              normX: liveBox.normX,
-              normY: liveBox.normY,
-              normW: liveBox.normW,
-              normH: liveBox.normH,
-            };
+            // Sample perimeter background color so there is NEVER a harsh white hole!
+            const sampledBg = sampleCanvasBorderColor(
+              canvasRef.current,
+              liveBox.normX,
+              liveBox.normY,
+              liveBox.normW,
+              liveBox.normH
+            );
 
-            // 2. Movable image annotation at that spot
+            // Create movable image annotation
             const movableImage: ImageAnnotation = {
               id: newAnnotationId("cut-img"),
               pageIndex,
@@ -604,10 +657,41 @@ export function PdfEditorTool() {
               dataUrl: croppedDataUrl,
             };
 
-            pushHistory([...annotations, originalWhiteout, movableImage]);
+            if (cutFillMode === "match") {
+              // Fill original hole with exact sampled background color
+              const originalPatch: WhiteoutAnnotation = {
+                id: newAnnotationId("match-patch"),
+                pageIndex,
+                type: "whiteout",
+                normX: liveBox.normX,
+                normY: liveBox.normY,
+                normW: liveBox.normW,
+                normH: liveBox.normH,
+                color: sampledBg,
+              };
+              pushHistory([...annotations, originalPatch, movableImage]);
+              showNotification(`Element detached! Background seamlessly matched (${sampledBg}). Drag anywhere to move.`);
+            } else if (cutFillMode === "white") {
+              const originalPatch: WhiteoutAnnotation = {
+                id: newAnnotationId("white-patch"),
+                pageIndex,
+                type: "whiteout",
+                normX: liveBox.normX,
+                normY: liveBox.normY,
+                normW: liveBox.normW,
+                normH: liveBox.normH,
+                color: "#FFFFFF",
+              };
+              pushHistory([...annotations, originalPatch, movableImage]);
+              showNotification("Element detached with white background patch. Drag anywhere to move.");
+            } else {
+              // Duplicate / Clone: do NOT erase original at all!
+              pushHistory([...annotations, movableImage]);
+              showNotification("Element duplicated! Drag anywhere to position the copy.");
+            }
+
             setSelectedId(movableImage.id);
             setActiveTool("select");
-            showNotification("Element detached! Drag anywhere on the page to move it.");
           }
         }
       } else if (activeTool === "highlight") {
@@ -632,6 +716,7 @@ export function PdfEditorTool() {
           normY: liveBox.normY,
           normW: Math.max(0.01, liveBox.normW),
           normH: Math.max(0.01, liveBox.normH),
+          color: "#FFFFFF",
         };
         pushHistory([...annotations, newWo]);
       } else if (activeTool === "rect" || activeTool === "circle") {
@@ -660,7 +745,15 @@ export function PdfEditorTool() {
       const list = prev[currentPage] || [];
       return {
         ...prev,
-        [currentPage]: list.map((item) => (item.id === id ? { ...item, ...updates } : item)),
+        [currentPage]: list.map((item) => {
+          if (item.id !== id) return item;
+          // Sample background color on edit if not already set
+          let bg = item.bgColor;
+          if (!bg && canvasRef.current) {
+            bg = sampleCanvasBorderColor(canvasRef.current, item.origNormX, item.origNormY, item.origNormW, item.origNormH);
+          }
+          return { ...item, ...updates, bgColor: bg };
+        }),
       };
     });
   };
@@ -772,7 +865,7 @@ export function PdfEditorTool() {
               Choose or Drop a PDF File to Edit
             </h3>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              Edit existing text, move existing images & elements, add signatures, freehand draw, highlight, and whiteout directly in your browser.
+              Edit existing text, move images & elements with seamless background matching, add signatures, freehand draw, and highlight directly in your browser.
             </p>
           </div>
 
@@ -807,8 +900,8 @@ export function PdfEditorTool() {
         <div className="w-full flex flex-col gap-3">
           {/* Status Toast Notification */}
           {statusNotification && (
-            <div className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-black text-xs font-semibold rounded-xl shadow-md animate-in fade-in slide-in-from-top-2 duration-200">
-              <Info className="w-4 h-4" />
+            <div className="flex items-center gap-2 px-4 py-2.5 bg-ink text-white dark:bg-card dark:text-foreground text-xs font-semibold rounded-xl border border-amber-500/40 shadow-lg animate-in fade-in slide-in-from-top-2 duration-200">
+              <Info className="w-4 h-4 text-amber-400 shrink-0" />
               <span>{statusNotification}</span>
             </div>
           )}
@@ -900,7 +993,7 @@ export function PdfEditorTool() {
               </button>
               <button
                 onClick={() => {
-                  if (confirm("Reset and clear all annotations on this document?")) {
+                  if (confirm("Reset and clear all edits and annotations on this document?")) {
                     pushHistory([]);
                     setSelectedId(null);
                     setExistingTextsMap({});
@@ -981,14 +1074,14 @@ export function PdfEditorTool() {
               <button
                 onClick={() => {
                   setActiveTool("editText");
-                  showNotification("Click on any existing text in the PDF to edit or change it.");
+                  showNotification("Click any highlighted text line, or drag a box over ANY text on the page to erase and replace it!");
                 }}
                 className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium whitespace-nowrap transition-all ${
                   activeTool === "editText"
                     ? "bg-amber-500 text-black font-semibold shadow-sm"
                     : "border border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20"
                 }`}
-                title="Click any existing word or sentence to edit"
+                title="Click any detected text or drag a box over any text to replace it"
               >
                 <Edit2 className="w-3.5 h-3.5" />
                 <span>Edit Existing Text</span>
@@ -998,14 +1091,14 @@ export function PdfEditorTool() {
               <button
                 onClick={() => {
                   setActiveTool("moveElement");
-                  showNotification("Drag a box around any image, photo, or element to move or erase it.");
+                  showNotification("Drag a box around any picture, logo, or element to detach and move it.");
                 }}
                 className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium whitespace-nowrap transition-all ${
                   activeTool === "moveElement"
                     ? "bg-amber-500 text-black font-semibold shadow-sm"
                     : "border border-blue-500/40 bg-blue-500/10 text-blue-700 dark:text-blue-400 hover:bg-blue-500/20"
                 }`}
-                title="Drag a box to cut, move, or erase any existing graphic or picture"
+                title="Drag a box to move or duplicate any graphic with matching background"
               >
                 <Scissors className="w-3.5 h-3.5" />
                 <span>Cut & Move Element</span>
@@ -1073,6 +1166,64 @@ export function PdfEditorTool() {
 
             {/* Contextual Properties Bar */}
             <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-border/40 text-xs">
+              {/* Cut & Move Fill Mode Options */}
+              {activeTool === "moveElement" && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-muted-foreground font-medium">Original background:</span>
+                  <button
+                    onClick={() => setCutFillMode("match")}
+                    className={`px-2.5 py-1 rounded-lg border text-xs font-medium transition-all ${
+                      cutFillMode === "match"
+                        ? "bg-blue-600 text-white border-blue-600 shadow-sm"
+                        : "border-border text-muted-foreground hover:bg-muted"
+                    }`}
+                    title="Seamlessly fill original hole with sampled perimeter background color (no white box!)"
+                  >
+                    Smart Background Match (Recommended)
+                  </button>
+                  <button
+                    onClick={() => setCutFillMode("duplicate")}
+                    className={`px-2.5 py-1 rounded-lg border text-xs font-medium transition-all ${
+                      cutFillMode === "duplicate"
+                        ? "bg-blue-600 text-white border-blue-600 shadow-sm"
+                        : "border-border text-muted-foreground hover:bg-muted"
+                    }`}
+                    title="Keep original graphic where it is and create a movable copy"
+                  >
+                    Duplicate / Clone
+                  </button>
+                  <button
+                    onClick={() => setCutFillMode("white")}
+                    className={`px-2.5 py-1 rounded-lg border text-xs font-medium transition-all ${
+                      cutFillMode === "white"
+                        ? "bg-blue-600 text-white border-blue-600 shadow-sm"
+                        : "border-border text-muted-foreground hover:bg-muted"
+                    }`}
+                    title="Fill original spot with white"
+                  >
+                    Whiteout Fill
+                  </button>
+                </div>
+              )}
+
+              {/* Edit Text Info & Instructions */}
+              {activeTool === "editText" && (
+                <div className="flex flex-wrap items-center gap-2 text-amber-800 dark:text-amber-300">
+                  <Info className="w-3.5 h-3.5 shrink-0 text-amber-500" />
+                  <span>
+                    {pageExistingTexts.length > 0 ? (
+                      <>
+                        <strong>{pageExistingTexts.length} text lines detected.</strong> Click any highlighted line to edit, or drag a box over any text to erase and replace it.
+                      </>
+                    ) : (
+                      <>
+                        <strong>Image/Scanned Document:</strong> Click and drag a box across any text on the page to erase and replace it!
+                      </>
+                    )}
+                  </span>
+                </div>
+              )}
+
               {/* Text Tool Options (For new text or selected text) */}
               {(activeTool === "text" ||
                 activeTool === "editText" ||
@@ -1189,16 +1340,6 @@ export function PdfEditorTool() {
                       />
                     ))}
                   </div>
-                </div>
-              )}
-
-              {/* Move Element Tool Info */}
-              {activeTool === "moveElement" && (
-                <div className="text-blue-600 dark:text-blue-400 text-xs flex items-center gap-2">
-                  <Scissors className="w-3.5 h-3.5" />
-                  <span>
-                    <strong>Cut & Move:</strong> Drag a box around any photo, logo, signature, or section to detach and move it anywhere.
-                  </span>
                 </div>
               )}
 
@@ -1335,9 +1476,9 @@ export function PdfEditorTool() {
                 className="relative bg-white shadow-2xl rounded-sm transition-shadow select-none"
                 style={{
                   cursor:
-                    activeTool === "draw" || activeTool === "moveElement"
+                    activeTool === "draw" || activeTool === "moveElement" || activeTool === "editText"
                       ? "crosshair"
-                      : activeTool === "text" || activeTool === "editText"
+                      : activeTool === "text"
                       ? "text"
                       : activeTool === "highlight" || activeTool === "whiteout" || activeTool === "rect" || activeTool === "circle"
                       ? "crosshair"
@@ -1367,7 +1508,7 @@ export function PdfEditorTool() {
                   className="absolute inset-0 z-20 touch-none overflow-hidden"
                 >
                   {/* SVG Layer for Drawings, Highlights, Whiteouts, Shapes */}
-                  <svg className="w-full h-full pointer-events-none absolute inset-0">
+                  <svg className="w-full h-full pointer-events-none absolute inset-0 z-10">
                     {/* Render Shapes (rect, circle) */}
                     {pageAnnotations
                       .filter((a): a is ShapeAnnotation => a.type === "rect" || a.type === "circle")
@@ -1384,7 +1525,7 @@ export function PdfEditorTool() {
                                 fill="transparent"
                                 stroke={shp.strokeColor}
                                 strokeWidth={shp.strokeWidth || 2}
-                                onClick={(e) => {
+                                onPointerDown={(e) => {
                                   e.stopPropagation();
                                   setSelectedId(shp.id);
                                 }}
@@ -1399,7 +1540,7 @@ export function PdfEditorTool() {
                                 fill="transparent"
                                 stroke={shp.strokeColor}
                                 strokeWidth={shp.strokeWidth || 2}
-                                onClick={(e) => {
+                                onPointerDown={(e) => {
                                   e.stopPropagation();
                                   setSelectedId(shp.id);
                                 }}
@@ -1436,7 +1577,7 @@ export function PdfEditorTool() {
                             height={`${hl.normH * 100}%`}
                             fill={hl.color}
                             fillOpacity={hl.opacity || 0.35}
-                            onClick={(e) => {
+                            onPointerDown={(e) => {
                               e.stopPropagation();
                               setSelectedId(hl.id);
                             }}
@@ -1447,7 +1588,7 @@ export function PdfEditorTool() {
                         );
                       })}
 
-                    {/* Render Whiteout Redactions */}
+                    {/* Render Whiteout Redactions with custom or sampled background color */}
                     {pageAnnotations
                       .filter((a): a is WhiteoutAnnotation => a.type === "whiteout")
                       .map((wo) => {
@@ -1459,14 +1600,14 @@ export function PdfEditorTool() {
                             y={`${wo.normY * 100}%`}
                             width={`${wo.normW * 100}%`}
                             height={`${wo.normH * 100}%`}
-                            fill="#FFFFFF"
-                            onClick={(e) => {
+                            fill={wo.color || "#FFFFFF"}
+                            onPointerDown={(e) => {
                               e.stopPropagation();
                               setSelectedId(wo.id);
                             }}
                             className="pointer-events-auto cursor-pointer"
-                            stroke={isSelected ? "#3B82F6" : "#E2E8F0"}
-                            strokeWidth="1"
+                            stroke={isSelected ? "#3B82F6" : "none"}
+                            strokeWidth={isSelected ? "2" : "0"}
                             strokeDasharray={isSelected ? "4 4" : "none"}
                           />
                         );
@@ -1493,7 +1634,7 @@ export function PdfEditorTool() {
                             strokeWidth={drw.strokeWidth || 3}
                             strokeLinecap="round"
                             strokeLinejoin="round"
-                            onClick={(e) => {
+                            onPointerDown={(e) => {
                               e.stopPropagation();
                               setSelectedId(drw.id);
                             }}
@@ -1518,7 +1659,7 @@ export function PdfEditorTool() {
                       />
                     )}
 
-                    {/* Live Box Selection Preview (Highlight / Whiteout / Cut & Move / Shapes) */}
+                    {/* Live Box Selection Preview (Highlight / Whiteout / Cut & Move / Erase Text / Shapes) */}
                     {liveBox && (
                       <rect
                         x={`${liveBox.normX * 100}%`}
@@ -1532,10 +1673,12 @@ export function PdfEditorTool() {
                             ? "#FFFFFF"
                             : activeTool === "moveElement"
                             ? "#3B82F6"
+                            : activeTool === "editText"
+                            ? "#F59E0B"
                             : "transparent"
                         }
-                        fillOpacity={activeTool === "highlight" ? 0.35 : activeTool === "moveElement" ? 0.2 : 1}
-                        stroke={activeTool === "moveElement" ? "#2563EB" : activeTool === "rect" || activeTool === "circle" ? shapeColor : "#3B82F6"}
+                        fillOpacity={activeTool === "highlight" ? 0.35 : activeTool === "moveElement" || activeTool === "editText" ? 0.2 : 1}
+                        stroke={activeTool === "moveElement" ? "#2563EB" : activeTool === "editText" ? "#D97706" : activeTool === "rect" || activeTool === "circle" ? shapeColor : "#3B82F6"}
                         strokeWidth="2"
                         strokeDasharray="4 4"
                       />
@@ -1557,13 +1700,14 @@ export function PdfEditorTool() {
                             top: `${txt.origNormY * 100}%`,
                             width: `${txt.origNormW * 100}%`,
                             height: `${txt.origNormH * 100}%`,
+                            backgroundColor: txt.bgColor || "#FFFFFF",
                           }}
-                          className="bg-white border border-dashed border-red-300 pointer-events-auto flex items-center justify-between text-[10px] text-red-500 px-1 select-none z-10"
+                          className="border border-dashed border-red-300 pointer-events-auto flex items-center justify-between text-[10px] text-red-500 px-1 select-none z-20"
                           title="Original text erased"
                         >
                           <span className="line-through truncate opacity-60">{txt.originalText}</span>
                           <button
-                            onClick={(e) => {
+                            onPointerDown={(e) => {
                               e.stopPropagation();
                               handleRestoreExistingText(txt.id);
                             }}
@@ -1579,7 +1723,7 @@ export function PdfEditorTool() {
                     if (txt.isEdited || isEditing) {
                       return (
                         <React.Fragment key={txt.id}>
-                          {/* Whiteout original location so old text is completely hidden */}
+                          {/* Matching background patch over original location so old text is completely hidden */}
                           <div
                             style={{
                               position: "absolute",
@@ -1587,8 +1731,9 @@ export function PdfEditorTool() {
                               top: `${txt.origNormY * 100}%`,
                               width: `${txt.origNormW * 100}%`,
                               height: `${txt.origNormH * 100}%`,
+                              backgroundColor: txt.bgColor || "#FFFFFF",
                             }}
-                            className="bg-white pointer-events-none z-0"
+                            className="pointer-events-none z-10"
                           />
 
                           {/* Editable Text Box with Drag Handle */}
@@ -1607,12 +1752,12 @@ export function PdfEditorTool() {
                                   : "Helvetica, Arial, sans-serif",
                               fontWeight: txt.isBold ? "bold" : "normal",
                             }}
-                            onClick={(e) => {
+                            onPointerDown={(e) => {
                               e.stopPropagation();
                               setSelectedId(txt.id);
                               setActiveEditingTextId(txt.id);
                             }}
-                            className={`pointer-events-auto flex items-center gap-1 group/txt rounded transition-all leading-tight z-10 ${
+                            className={`pointer-events-auto flex items-center gap-1 group/txt rounded transition-all leading-tight z-20 ${
                               isSelected || isEditing
                                 ? "ring-2 ring-amber-500 bg-amber-50/90 dark:bg-amber-950/40 shadow-sm"
                                 : "hover:ring-1 hover:ring-amber-500/50 bg-white/80"
@@ -1646,7 +1791,7 @@ export function PdfEditorTool() {
 
                             {(isSelected || isEditing) && (
                               <button
-                                onClick={(e) => {
+                                onPointerDown={(e) => {
                                   e.stopPropagation();
                                   handleDeleteExistingText(txt.id);
                                 }}
@@ -1661,8 +1806,8 @@ export function PdfEditorTool() {
                       );
                     }
 
-                    // Hoverable existing text hotspot
-                    if (activeTool === "select" || activeTool === "editText") {
+                    // Visible existing text hotspot when in editText or select mode
+                    if (activeTool === "editText" || activeTool === "select") {
                       return (
                         <div
                           key={txt.id}
@@ -1673,17 +1818,21 @@ export function PdfEditorTool() {
                             width: `${txt.origNormW * 100}%`,
                             height: `${txt.origNormH * 100}%`,
                           }}
-                          onClick={(e) => {
+                          onPointerDown={(e) => {
                             e.stopPropagation();
                             setActiveEditingTextId(txt.id);
                             setSelectedId(txt.id);
                             handleUpdateExistingText(txt.id, { isEdited: true });
                           }}
-                          className="pointer-events-auto cursor-pointer border border-transparent hover:border-amber-500 hover:bg-amber-500/10 transition-colors rounded-sm group/hover flex items-center justify-end z-10"
-                          title="Click to edit or move this text"
+                          className={`pointer-events-auto cursor-pointer rounded-sm group/hover flex items-center justify-end z-20 transition-all ${
+                            activeTool === "editText"
+                              ? "border border-dashed border-amber-500/70 bg-amber-500/10 hover:bg-amber-500/20"
+                              : "border border-transparent hover:border-amber-500/60 hover:bg-amber-500/10"
+                          }`}
+                          title="Click to edit or drag this text"
                         >
-                          <span className="hidden group-hover/hover:inline-flex items-center gap-0.5 px-1 py-0.5 rounded bg-amber-500 text-black text-[9px] font-bold shadow-sm translate-y-[-100%] absolute right-0 top-0">
-                            <Edit2 className="w-2.5 h-2.5" /> Edit
+                          <span className="hidden group-hover/hover:inline-flex items-center gap-0.5 px-1 py-0.5 rounded bg-amber-500 text-black text-[9px] font-bold shadow-sm translate-y-[-100%] absolute right-0 top-0 whitespace-nowrap">
+                            <Edit2 className="w-2.5 h-2.5" /> Edit Text
                           </span>
                         </div>
                       );
@@ -1692,7 +1841,7 @@ export function PdfEditorTool() {
                     return null;
                   })}
 
-                  {/* DOM Layer: User Added Text Annotations */}
+                  {/* DOM Layer: User Added / Replaced Text Annotations */}
                   {pageAnnotations
                     .filter((a): a is TextAnnotation => a.type === "text")
                     .map((txt) => {
@@ -1714,11 +1863,11 @@ export function PdfEditorTool() {
                                 : "Helvetica, Arial, sans-serif",
                             fontWeight: txt.isBold ? "bold" : "normal",
                           }}
-                          onClick={(e) => {
+                          onPointerDown={(e) => {
                             e.stopPropagation();
                             setSelectedId(txt.id);
                           }}
-                          className={`pointer-events-auto flex items-center gap-1 group/user rounded transition-all leading-tight z-10 ${
+                          className={`pointer-events-auto flex items-center gap-1 group/user rounded transition-all leading-tight z-20 ${
                             isSelected
                               ? "ring-2 ring-blue-500 bg-blue-50/80 dark:bg-blue-950/40 shadow-sm"
                               : "hover:ring-1 hover:ring-amber-500/50 bg-white/70"
@@ -1751,7 +1900,7 @@ export function PdfEditorTool() {
                       );
                     })}
 
-                  {/* DOM Layer: Cut Elements, Signature & Image Annotations */}
+                  {/* DOM Layer: Detached/Cut Elements, Signature & Image Annotations */}
                   {pageAnnotations
                     .filter((a): a is ImageAnnotation => a.type === "signature" || a.type === "image")
                     .map((img) => {
@@ -1766,11 +1915,11 @@ export function PdfEditorTool() {
                             width: `${img.normW * 100}%`,
                             height: `${img.normH * 100}%`,
                           }}
-                          onClick={(e) => {
+                          onPointerDown={(e) => {
                             e.stopPropagation();
                             setSelectedId(img.id);
                           }}
-                          className={`pointer-events-auto group select-none transition-all z-10 ${
+                          className={`pointer-events-auto group select-none transition-all z-20 ${
                             isSelected ? "ring-2 ring-blue-500 shadow-md" : "hover:ring-1 hover:ring-amber-500/50"
                           }`}
                         >
@@ -1779,7 +1928,7 @@ export function PdfEditorTool() {
                             onPointerDown={(e) =>
                               handleStartDragItem(e, img.id, "annotation", img.normX, img.normY)
                             }
-                            className="absolute -top-3 -left-3 p-1 rounded-full bg-blue-600 text-white shadow cursor-move touch-none opacity-0 group-hover:opacity-100 transition-opacity z-20"
+                            className="absolute -top-3 -left-3 p-1 rounded-full bg-blue-600 text-white shadow cursor-move touch-none opacity-0 group-hover:opacity-100 transition-opacity z-30"
                             title="Drag to reposition element"
                           >
                             <Move className="w-3 h-3" />

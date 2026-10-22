@@ -24,6 +24,7 @@ export interface ExistingTextItem {
   normH: number;
   fontSize: number;
   color: string;
+  bgColor?: string;
   fontFamily: "Helvetica" | "Times" | "Courier";
   isBold?: boolean;
   isEdited: boolean;
@@ -84,6 +85,7 @@ export interface WhiteoutAnnotation extends BaseAnnotation {
   normY: number;
   normW: number;
   normH: number;
+  color?: string; // hex color of the redaction/background patch, default #FFFFFF
 }
 
 export interface ShapeAnnotation extends BaseAnnotation {
@@ -284,12 +286,13 @@ export async function exportPdfWithAnnotations(
           pdfW,
           pdfH
         );
+        const { r, g, b } = hexToRgb(ann.color || "#FFFFFF");
         page.drawRectangle({
           x,
           y,
           width,
           height,
-          color: rgb(1, 1, 1),
+          color: rgb(r, g, b),
         });
         break;
       }
@@ -566,6 +569,7 @@ export function buildCombinedAnnotations(
       normY: Math.max(0, item.origNormY - padY),
       normW: Math.min(1, item.origNormW + padX * 2),
       normH: Math.min(1, item.origNormH + padY * 2),
+      color: item.bgColor || "#FFFFFF",
     });
 
     // 2. If not deleted, draw the new/edited text at its (possibly moved) location
@@ -618,5 +622,60 @@ export function captureCanvasRegion(
   } catch (err) {
     console.error("captureCanvasRegion error:", err);
     return null;
+  }
+}
+
+/**
+ * Samples perimeter pixels around a normalized bounding box to determine the dominant
+ * background color. This ensures moved elements leave an exact matching background
+ * fill instead of an ugly stark white box.
+ */
+export function sampleCanvasBorderColor(
+  sourceCanvas: HTMLCanvasElement,
+  normX: number,
+  normY: number,
+  normW: number,
+  normH: number
+): string {
+  try {
+    const ctx = sourceCanvas.getContext("2d");
+    if (!ctx) return "#FFFFFF";
+
+    const x = Math.floor(normX * sourceCanvas.width);
+    const y = Math.floor(normY * sourceCanvas.height);
+    const w = Math.ceil(normW * sourceCanvas.width);
+    const h = Math.ceil(normH * sourceCanvas.height);
+
+    const samples: { r: number; g: number; b: number }[] = [];
+    const getPixel = (px: number, py: number) => {
+      const clampedX = Math.max(0, Math.min(sourceCanvas.width - 1, px));
+      const clampedY = Math.max(0, Math.min(sourceCanvas.height - 1, py));
+      const p = ctx.getImageData(clampedX, clampedY, 1, 1).data;
+      return { r: p[0]!, g: p[1]!, b: p[2]! };
+    };
+
+    const steps = 8;
+    for (let i = 0; i <= steps; i++) {
+      const px = Math.round(x + (w * i) / steps);
+      samples.push(getPixel(px, y - 2));
+      samples.push(getPixel(px, y + h + 2));
+    }
+    for (let j = 0; j <= steps; j++) {
+      const py = Math.round(y + (h * j) / steps);
+      samples.push(getPixel(x - 2, py));
+      samples.push(getPixel(x + w + 2, py));
+    }
+
+    if (samples.length === 0) return "#FFFFFF";
+
+    const avgR = Math.round(samples.reduce((s, c) => s + c.r, 0) / samples.length);
+    const avgG = Math.round(samples.reduce((s, c) => s + c.g, 0) / samples.length);
+    const avgB = Math.round(samples.reduce((s, c) => s + c.b, 0) / samples.length);
+
+    const toHex = (n: number) => Math.max(0, Math.min(255, n)).toString(16).padStart(2, "0");
+    return `#${toHex(avgR)}${toHex(avgG)}${toHex(avgB)}`.toUpperCase();
+  } catch (err) {
+    console.warn("sampleCanvasBorderColor error:", err);
+    return "#FFFFFF";
   }
 }
