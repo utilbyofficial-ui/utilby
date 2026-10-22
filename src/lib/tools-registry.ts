@@ -109,8 +109,9 @@ export const TOOLS: ToolMeta[] = [
     shortDescription: "Reduce JPG, PNG, and WebP file sizes drastically without sacrificing visual quality.",
     longDescription: "Client-side image compression with quality slider and instant size reduction preview.",
     iconName: "Minimize2",
-    isReady: false,
-    keywords: ["image compressor", "compress jpg", "reduce image size"],
+    isReady: true,
+    featured: true,
+    keywords: ["image compressor", "compress jpg", "compress png", "reduce image size", "convert to webp", "bulk image compressor"],
   },
   {
     id: "qr-code-generator",
