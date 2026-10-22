@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { TOOLS, CATEGORIES } from "@/lib/tools-registry";
 import { CATEGORY_STYLES, CATEGORY_ORDER, POPULAR_TOOL_IDS } from "@/lib/category-style";
+import { CATEGORY_LANDING_PAGES } from "@/lib/category-landing";
 import { ToolGlyph, CategoryGlyph } from "@/components/shared/ToolGlyph";
 import { HeroSearch } from "@/components/home/HeroSearch";
 import { cn } from "@/lib/utils";
@@ -53,7 +54,7 @@ export default function HomePage() {
       </section>
 
       {/* Toolboxes */}
-      <section aria-labelledby="toolboxes" className="mx-auto max-w-[1240px] px-4 py-12 sm:px-6 lg:px-8">
+      <section id="all-tools" aria-labelledby="toolboxes" className="mx-auto max-w-[1240px] scroll-mt-20 px-4 py-12 sm:px-6 lg:px-8">
         <h2 id="toolboxes" className="font-display text-3xl font-bold tracking-tight text-ink sm:text-4xl">
           Pick a toolbox
         </h2>
@@ -61,10 +62,12 @@ export default function HomePage() {
           {categories.map((c) => {
             const count = ready.filter((t) => t.category === c.id).length;
             const style = CATEGORY_STYLES[c.id];
+            const landing = CATEGORY_LANDING_PAGES[c.id as keyof typeof CATEGORY_LANDING_PAGES];
+            const href = landing ? `/${landing.slug}` : `/#${c.id}`;
             return (
               <Link
                 key={c.id}
-                href={`#${c.id}`}
+                href={href}
                 className={cn(
                   "group flex min-h-[150px] flex-col justify-between gap-6 rounded-[24px] p-4 transition-transform duration-200 hover:-translate-y-1 sm:min-h-[180px] sm:gap-10 sm:rounded-[28px] sm:p-6",
                   style.soft
@@ -96,7 +99,7 @@ export default function HomePage() {
             Most loved
           </h2>
           <Link href="#all-tools" className="text-[15px] font-semibold text-ink underline-offset-4 hover:underline">
-            See all {ready.length} tools →
+            Explore all toolboxes →
           </Link>
         </div>
         <div className="stagger mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -106,38 +109,8 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* All tools by category */}
-      <section id="all-tools" aria-labelledby="all" className="scroll-mt-20 bg-slate-100/70 py-16">
-        <div className="mx-auto max-w-[1240px] px-4 sm:px-6 lg:px-8">
-          <h2 id="all" className="font-display text-3xl font-bold tracking-tight text-ink sm:text-4xl">
-            Every tool
-          </h2>
-          <p className="mt-2 text-[15px] text-slate-600">Grouped by toolbox. New tools are added regularly.</p>
-          <div className="mt-10 space-y-12">
-            {categories.map((c) => {
-              const tools = TOOLS.filter((t) => t.category === c.id);
-              if (!tools.length) return null;
-              return (
-                <div key={c.id} id={c.id} className="scroll-mt-24">
-                  <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-1">
-                    <CategoryGlyph category={c.id} size="sm" />
-                    <h3 className="font-display text-2xl font-bold tracking-tight text-ink">{c.name}</h3>
-                    <span className="text-sm text-slate-600">· {c.description}</span>
-                  </div>
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                    {tools.map((t) => (
-                      <ToolCard key={t.id} tool={t} compact />
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
       {/* Promise */}
-      <section aria-labelledby="promise" className="mx-auto max-w-[1240px] px-4 pt-20 sm:px-6 lg:px-8">
+      <section aria-labelledby="promise" className="mx-auto max-w-[1240px] px-4 pt-12 sm:px-6 lg:px-8">
         <h2 id="promise" className="sr-only">
           Why Utilby
         </h2>

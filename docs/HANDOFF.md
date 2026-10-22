@@ -55,7 +55,7 @@ Coming soon (registry, `isReady: false`): PDF Editor, PDF Compressor.
 2. ~~Compact tool hero~~ — done (shrink `ToolLayout` hero: smaller glyph/h1, shorter subtitle, tighter padding so tool is visible without scrolling on mobile).
 3. ~~Reduce repeated privacy messaging~~ — done (one clear statement per page: hero pill on tool pages, #promise on homepage, removed duplicate sidebar box, workspace hints, and footer badge).
 4. **Favicon + Open Graph share images** (site-wide and per tool; static export → generate PNGs at build time or commit them in `public/og/`).
-5. **Category landing pages** (`/pdf-tools`, `/image-tools`, …) and remove the duplicated "Every tool" list from the homepage.
+5. ~~Category landing pages~~ — done (`/pdf-tools`, `/image-tools`, `/text-tools`, `/developer-tools`, `/calculators`, `/security-tools` + aliases with `CollectionPage`, `ItemList` sitelinks, `FAQPage` schema, AdSense slots, and removed duplicate tool list from homepage).
 6. **Unify inner tool UI colors** (QR tabs/EC buttons, PDF toolbar, compressor/resizer controls → ink or category color for selected states).
 7. **Shorter, plain-language tool names/descriptions** in the registry; make tool page titles consistent.
 8. **Restyle legal pages** (About, Contact, Privacy, Terms, Disclaimer) to the new design.

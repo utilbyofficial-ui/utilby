@@ -1,5 +1,6 @@
 import { MetadataRoute } from "next";
 import { TOOLS } from "@/lib/tools-registry";
+import { CATEGORY_LANDING_PAGES } from "@/lib/category-landing";
 
 export const dynamic = "force-static";
 
@@ -47,6 +48,14 @@ export default function sitemap(): MetadataRoute.Sitemap {
     },
   ];
 
+  // Category landing pages (high authority SEO hubs)
+  const categoryPages: MetadataRoute.Sitemap = Object.values(CATEGORY_LANDING_PAGES).map((cat) => ({
+    url: `${baseUrl}/${cat.slug}`,
+    lastModified: now,
+    changeFrequency: "weekly",
+    priority: 0.85,
+  }));
+
   // Dynamic tool pages for all ready tools
   const toolPages: MetadataRoute.Sitemap = TOOLS.filter((t) => t.isReady).map((tool) => ({
     url: `${baseUrl}/tools/${tool.slug}`,
@@ -55,5 +64,5 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.9,
   }));
 
-  return [...staticPages, ...toolPages];
+  return [...staticPages, ...categoryPages, ...toolPages];
 }

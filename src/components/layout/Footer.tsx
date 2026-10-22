@@ -2,6 +2,7 @@ import * as React from "react";
 import Link from "next/link";
 import { CATEGORIES, TOOLS } from "@/lib/tools-registry";
 import { CATEGORY_ORDER, POPULAR_TOOL_IDS } from "@/lib/category-style";
+import { CATEGORY_LANDING_PAGES } from "@/lib/category-landing";
 
 export function Footer() {
   const popular = POPULAR_TOOL_IDS.slice(0, 6).map((id) => TOOLS.find((t) => t.id === id)!).filter(Boolean);
@@ -25,13 +26,17 @@ export function Footer() {
           <div>
             <h2 className="text-sm font-semibold text-white">Toolboxes</h2>
             <ul className="mt-4 space-y-2.5 text-sm">
-              {categories.map((c) => (
-                <li key={c.id}>
-                  <Link href={`/#${c.id}`} className="text-slate-400 transition-colors hover:text-white">
-                    {c.name}
-                  </Link>
-                </li>
-              ))}
+              {categories.map((c) => {
+                const landing = CATEGORY_LANDING_PAGES[c.id as keyof typeof CATEGORY_LANDING_PAGES];
+                const href = landing ? `/${landing.slug}` : `/#${c.id}`;
+                return (
+                  <li key={c.id}>
+                    <Link href={href} className="text-slate-400 transition-colors hover:text-white">
+                      {c.name}
+                    </Link>
+                  </li>
+                );
+              })}
             </ul>
           </div>
 

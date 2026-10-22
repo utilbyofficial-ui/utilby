@@ -12,10 +12,11 @@ import { POPULAR_TOOL_IDS } from "@/lib/category-style";
 
 const NAV = [
   { label: "All tools", href: "/#all-tools" },
-  { label: "PDF", href: "/#pdf" },
-  { label: "Images", href: "/#image" },
-  { label: "Text", href: "/#text" },
-  { label: "Developer", href: "/#developer" },
+  { label: "PDF", href: "/pdf-tools" },
+  { label: "Images", href: "/image-tools" },
+  { label: "Text", href: "/text-tools" },
+  { label: "Developer", href: "/developer-tools" },
+  { label: "Calculators", href: "/calculators" },
 ];
 
 export function searchTools(query: string) {

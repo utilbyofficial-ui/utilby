@@ -8,6 +8,7 @@ import { ToolGlyph } from "@/components/shared/ToolGlyph";
 import { ArrowRight, ShieldCheck } from "lucide-react";
 import { TOOLS } from "@/lib/tools-registry";
 import { CATEGORY_STYLES } from "@/lib/category-style";
+import { getCategoryLandingData } from "@/lib/category-landing";
 import { cn } from "@/lib/utils";
 
 interface ToolLayoutProps {
@@ -33,7 +34,10 @@ export function ToolLayout({
   technicalDetails,
   faqs,
 }: ToolLayoutProps) {
-  const breadcrumbs: BreadcrumbItem[] = [{ label: category, href: `/#${categorySlug}` }, { label: title }];
+  const categoryData = getCategoryLandingData(categorySlug);
+  const categoryHref = categoryData ? `/${categoryData.slug}` : `/#${categorySlug}`;
+  const categoryUrl = `https://utilby.com${categoryHref}`;
+  const breadcrumbs: BreadcrumbItem[] = [{ label: category, href: categoryHref }, { label: title }];
   const tool = TOOLS.find((t) => t.id === toolId);
   const catId = tool?.category ?? (categorySlug as keyof typeof CATEGORY_STYLES);
   const style = CATEGORY_STYLES[catId] ?? CATEGORY_STYLES.developer;
@@ -54,7 +58,7 @@ export function ToolLayout({
         faqs={faqs}
         breadcrumbs={[
           { name: "Home", url: "https://utilby.com" },
-          { name: category, url: `https://utilby.com/#${categorySlug}` },
+          { name: category, url: categoryUrl },
           { name: title, url: `https://utilby.com/tools/${toolId}` },
         ]}
       />
@@ -149,6 +153,15 @@ export function ToolLayout({
                   </li>
                 ))}
               </ul>
+              <div className="mt-4 border-t border-slate-100 pt-3 text-center">
+                <Link
+                  href={categoryHref}
+                  className="inline-flex items-center gap-1.5 text-xs font-bold text-ink hover:text-indigo-700 transition-colors"
+                >
+                  Explore all {category}
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+              </div>
             </div>
           </aside>
         </div>
