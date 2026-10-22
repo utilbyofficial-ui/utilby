@@ -7,6 +7,7 @@ Read this before changing anything. Live site: https://utilby.com (Cloudflare Pa
 2. Before pushing: `npm run build` **and** `npm test` must pass.
 3. Every tool is 100% client-side. No user data may ever be sent to a server.
 4. Design: clean, premium, light theme (see Design system below).
+5. **100% AdSense & Domain Safety:** Never add tools that download copyrighted media (YouTube/TikTok/FB/IG video downloaders), scrapers, or anything violating Google AdSense / DMCA policies. Keep the entire site 100% white-hat, legal, and AdSense-compliant.
 
 ## Stack
 Next.js 15 App Router · `output: "export"` (static, `out/`) · TypeScript · Tailwind 3 · Vitest.
