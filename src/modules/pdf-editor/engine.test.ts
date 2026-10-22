@@ -8,6 +8,8 @@ import {
   createDefaultShape,
   dataUrlToBytes,
   exportPdfWithAnnotations,
+  groupPdfTextItems,
+  buildCombinedAnnotations,
   Annotation,
 } from "./engine";
 import { getPdfLib } from "@/modules/pdf/build";
@@ -104,5 +106,65 @@ describe("PDF Editor Engine", () => {
     // Verify it re-loads cleanly as a valid PDF
     const reloaded = await pdfLib.PDFDocument.load(editedBytes);
     expect(reloaded.getPageCount()).toBe(1);
+  });
+
+  it("extracts and groups existing PDF text items into cohesive lines", () => {
+    const mockRaw = [
+      { str: "Invoice", transform: [16, 0, 0, 16, 50, 700], width: 50, height: 16 },
+      { str: "Number:", transform: [16, 0, 0, 16, 110, 700], width: 60, height: 16 },
+      { str: "#1001", transform: [16, 0, 0, 16, 180, 700], width: 45, height: 16 },
+      { str: "Total Due: $250.00", transform: [14, 0, 0, 14, 50, 650], width: 140, height: 14 },
+    ];
+
+    const grouped = groupPdfTextItems(mockRaw, 600, 800, 0);
+    expect(grouped.length).toBe(2);
+    expect(grouped[0]!.originalText).toBe("Invoice Number: #1001");
+    expect(grouped[0]!.currentText).toBe("Invoice Number: #1001");
+    expect(grouped[0]!.fontSize).toBe(16);
+    expect(grouped[0]!.normX).toBeCloseTo(50 / 600, 3);
+
+    expect(grouped[1]!.originalText).toBe("Total Due: $250.00");
+    expect(grouped[1]!.fontSize).toBe(14);
+  });
+
+  it("builds combined annotations by whiting out modified text and generating replacement text", () => {
+    const existing = groupPdfTextItems(
+      [
+        { str: "John Doe", transform: [16, 0, 0, 16, 100, 700], width: 80, height: 16 },
+        { str: "Unmodified Line", transform: [14, 0, 0, 14, 100, 600], width: 100, height: 14 },
+      ],
+      600,
+      800,
+      0
+    );
+
+    // Edit the first item
+    existing[0]!.isEdited = true;
+    existing[0]!.currentText = "Md Faisal";
+
+    const combined = buildCombinedAnnotations([], existing);
+
+    // Should generate 1 whiteout for the original position + 1 new text annotation for "Md Faisal"
+    expect(combined.length).toBe(2);
+    expect(combined[0]!.type).toBe("whiteout");
+    expect(combined[1]!.type).toBe("text");
+    if (combined[1]!.type === "text") {
+      expect(combined[1]!.text).toBe("Md Faisal");
+    }
+  });
+
+  it("handles deleted existing text items by solely whiting them out", () => {
+    const existing = groupPdfTextItems(
+      [{ str: "Confidential Section", transform: [16, 0, 0, 16, 50, 700], width: 150, height: 16 }],
+      600,
+      800,
+      0
+    );
+
+    existing[0]!.isDeleted = true;
+
+    const combined = buildCombinedAnnotations([], existing);
+    expect(combined.length).toBe(1);
+    expect(combined[0]!.type).toBe("whiteout");
   });
 });

@@ -12,6 +12,10 @@ import {
   ShapeAnnotation,
   ImageAnnotation,
   ToolMode,
+  ExistingTextItem,
+  groupPdfTextItems,
+  buildCombinedAnnotations,
+  captureCanvasRegion,
   newAnnotationId,
   createDefaultTextAnnotation,
   createDefaultWhiteout,
@@ -49,7 +53,11 @@ import {
   Sparkles,
   Layers,
   X,
-  Plus,
+  Edit2,
+  Scissors,
+  GripVertical,
+  Move,
+  Info,
 } from "lucide-react";
 
 const COLOR_PRESETS = [
@@ -108,14 +116,19 @@ export function PdfEditorTool() {
   const [highlightColor, setHighlightColor] = React.useState<string>("#FACC15");
   const [shapeColor, setShapeColor] = React.useState<string>("#E11D48");
 
-  // Annotations and Undo/Redo
+  // User Annotations and History
   const [annotations, setAnnotations] = React.useState<Annotation[]>([]);
   const [history, setHistory] = React.useState<Annotation[][]>([[]]);
   const [historyIndex, setHistoryIndex] = React.useState<number>(0);
 
-  // Selected annotation on current page
+  // Existing PDF Text Items per page (extracted via PDF.js)
+  const [existingTextsMap, setExistingTextsMap] = React.useState<Record<number, ExistingTextItem[]>>({});
+  const [activeEditingTextId, setActiveEditingTextId] = React.useState<string | null>(null);
+
+  // Selection & Modal states
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
   const [isSignatureModalOpen, setIsSignatureModalOpen] = React.useState<boolean>(false);
+  const [statusNotification, setStatusNotification] = React.useState<string | null>(null);
 
   // Canvas and interaction refs
   const canvasRef = React.useRef<HTMLCanvasElement | null>(null);
@@ -123,23 +136,30 @@ export function PdfEditorTool() {
   const imageInputRef = React.useRef<HTMLInputElement | null>(null);
   const renderTaskRef = React.useRef<any>(null);
 
-  // Dragging / drawing temp state
+  // Dragging / Drawing state
   const isInteracting = React.useRef(false);
   const dragStartPos = React.useRef<{ x: number; y: number } | null>(null);
   const currentDrawPoints = React.useRef<{ normX: number; normY: number }[]>([]);
   const [liveDrawing, setLiveDrawing] = React.useState<{ normX: number; normY: number }[] | null>(null);
   const [liveBox, setLiveBox] = React.useState<{ normX: number; normY: number; normW: number; normH: number } | null>(null);
 
-  // Dragging an existing annotation
-  const draggingAnnotation = React.useRef<{
+  // Dragging an existing element or text
+  const [draggingItem, setDraggingItem] = React.useState<{
     id: string;
-    initialNormX: number;
-    initialNormY: number;
+    kind: "annotation" | "existingText";
     startClientX: number;
     startClientY: number;
+    origNormX: number;
+    origNormY: number;
   } | null>(null);
 
-  // Push new state to undo/redo history
+  // Helper notification toaster
+  const showNotification = (msg: string) => {
+    setStatusNotification(msg);
+    setTimeout(() => setStatusNotification(null), 4500);
+  };
+
+  // Push new annotation state to history
   const pushHistory = React.useCallback(
     (newAnnotations: Annotation[]) => {
       setHistory((prev) => {
@@ -185,6 +205,7 @@ export function PdfEditorTool() {
       setAnnotations([]);
       setHistory([[]]);
       setHistoryIndex(0);
+      setExistingTextsMap({});
       setSelectedId(null);
       setCurrentPage(1);
 
@@ -223,7 +244,7 @@ export function PdfEditorTool() {
     }
   };
 
-  // Render current page onto canvas
+  // Render current page onto canvas and extract existing text items
   React.useEffect(() => {
     let isCancelled = false;
 
@@ -242,6 +263,25 @@ export function PdfEditorTool() {
       try {
         const page = await pdfDoc.getPage(currentPage);
         if (isCancelled) return;
+
+        // Extract existing text items if not already cached for this page
+        if (!existingTextsMap[currentPage]) {
+          try {
+            const textContent = await page.getTextContent();
+            const baseVp = page.getViewport({ scale: 1 });
+            const extracted = groupPdfTextItems(
+              textContent.items as any,
+              baseVp.width,
+              baseVp.height,
+              currentPage - 1
+            );
+            if (!isCancelled) {
+              setExistingTextsMap((prev) => ({ ...prev, [currentPage]: extracted }));
+            }
+          } catch (textErr) {
+            console.warn("Could not extract page text items:", textErr);
+          }
+        }
 
         const viewport = page.getViewport({ scale: zoomScale });
         const canvas = canvasRef.current;
@@ -287,7 +327,7 @@ export function PdfEditorTool() {
     return () => {
       isCancelled = true;
     };
-  }, [pdfDoc, currentPage, zoomScale]);
+  }, [pdfDoc, currentPage, zoomScale, existingTextsMap]);
 
   // Clean up thumbnails on unmount
   React.useEffect(() => {
@@ -314,7 +354,13 @@ export function PdfEditorTool() {
         e.preventDefault();
       } else if (e.key === "Delete" || e.key === "Backspace") {
         if (selectedId) {
-          pushHistory(annotations.filter((a) => a.id !== selectedId));
+          // Check if selected is an existing text item
+          const isExisting = (existingTextsMap[currentPage] || []).some((t) => t.id === selectedId);
+          if (isExisting) {
+            handleDeleteExistingText(selectedId);
+          } else {
+            pushHistory(annotations.filter((a) => a.id !== selectedId));
+          }
           setSelectedId(null);
           e.preventDefault();
         }
@@ -324,14 +370,15 @@ export function PdfEditorTool() {
         if (currentPage < totalPages) setCurrentPage((p) => p + 1);
       } else if (e.key === "Escape") {
         setSelectedId(null);
+        setActiveEditingTextId(null);
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [selectedId, annotations, currentPage, totalPages, handleUndo, handleRedo, pushHistory]);
+  }, [selectedId, annotations, existingTextsMap, currentPage, totalPages, handleUndo, handleRedo, pushHistory]);
 
-  // Pointer event coordinate converter (relative to page overlay 0 to 1)
+  // Normalized coordinate converter (0.0 to 1.0)
   const getNormalizedCoords = (e: React.PointerEvent<HTMLDivElement>) => {
     const overlay = overlayRef.current;
     if (!overlay) return { normX: 0, normY: 0 };
@@ -343,15 +390,79 @@ export function PdfEditorTool() {
     return { normX, normY };
   };
 
+  // Pointer dragging handler for repositioning text and elements
+  const handleStartDragItem = (
+    e: React.PointerEvent,
+    id: string,
+    kind: "annotation" | "existingText",
+    currNormX: number,
+    currNormY: number
+  ) => {
+    e.stopPropagation();
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    setDraggingItem({
+      id,
+      kind,
+      startClientX: e.clientX,
+      startClientY: e.clientY,
+      origNormX: currNormX,
+      origNormY: currNormY,
+    });
+    setSelectedId(id);
+  };
+
+  const handleItemPointerMove = (e: React.PointerEvent) => {
+    if (!draggingItem || !overlayRef.current) return;
+    const rect = overlayRef.current.getBoundingClientRect();
+    const deltaX = (e.clientX - draggingItem.startClientX) / rect.width;
+    const deltaY = (e.clientY - draggingItem.startClientY) / rect.height;
+
+    const newNormX = Math.max(0, Math.min(0.95, draggingItem.origNormX + deltaX));
+    const newNormY = Math.max(0, Math.min(0.95, draggingItem.origNormY + deltaY));
+
+    if (draggingItem.kind === "existingText") {
+      setExistingTextsMap((prev) => {
+        const pageList = prev[currentPage] || [];
+        return {
+          ...prev,
+          [currentPage]: pageList.map((item) =>
+            item.id === draggingItem.id ? { ...item, normX: newNormX, normY: newNormY, isEdited: true } : item
+          ),
+        };
+      });
+    } else {
+      setAnnotations((prev) =>
+        prev.map((ann) => {
+          if (ann.id !== draggingItem.id) return ann;
+          if ("normX" in ann && "normY" in ann) {
+            return { ...ann, normX: newNormX, normY: newNormY };
+          }
+          return ann;
+        })
+      );
+    }
+  };
+
+  const handleItemPointerUp = (e: React.PointerEvent) => {
+    if (!draggingItem) return;
+    try {
+      (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+    } catch {
+      // ignore
+    }
+    setDraggingItem(null);
+    pushHistory(annotations);
+  };
+
   // Overlay Pointer Down
   const handleOverlayPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (e.button !== 0) return; // only left click
+    if (e.button !== 0) return; // left click only
     const { normX, normY } = getNormalizedCoords(e);
     const pageIndex = currentPage - 1;
 
-    if (activeTool === "select") {
-      // If clicked empty area, deselect
+    if (activeTool === "select" || activeTool === "editText") {
       setSelectedId(null);
+      setActiveEditingTextId(null);
       return;
     }
 
@@ -378,12 +489,13 @@ export function PdfEditorTool() {
       return;
     }
 
-    // Start drag box tools (highlight, whiteout, rect, circle)
+    // Start drag box tools (highlight, whiteout, rect, circle, moveElement)
     if (
       activeTool === "highlight" ||
       activeTool === "whiteout" ||
       activeTool === "rect" ||
-      activeTool === "circle"
+      activeTool === "circle" ||
+      activeTool === "moveElement"
     ) {
       isInteracting.current = true;
       dragStartPos.current = { x: normX, y: normY };
@@ -395,6 +507,11 @@ export function PdfEditorTool() {
 
   // Overlay Pointer Move
   const handleOverlayPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (draggingItem) {
+      handleItemPointerMove(e);
+      return;
+    }
+
     if (!isInteracting.current) return;
     const { normX, normY } = getNormalizedCoords(e);
 
@@ -417,6 +534,11 @@ export function PdfEditorTool() {
 
   // Overlay Pointer Up
   const handleOverlayPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (draggingItem) {
+      handleItemPointerUp(e);
+      return;
+    }
+
     if (!isInteracting.current) return;
     isInteracting.current = false;
     const pageIndex = currentPage - 1;
@@ -447,7 +569,48 @@ export function PdfEditorTool() {
     }
 
     if (liveBox && (liveBox.normW > 0.01 || liveBox.normH > 0.01)) {
-      if (activeTool === "highlight") {
+      // Cut & Move Existing Graphic / Element
+      if (activeTool === "moveElement") {
+        if (canvasRef.current) {
+          const croppedDataUrl = captureCanvasRegion(
+            canvasRef.current,
+            liveBox.normX,
+            liveBox.normY,
+            liveBox.normW,
+            liveBox.normH
+          );
+
+          if (croppedDataUrl) {
+            // 1. Whiteout original location
+            const originalWhiteout: WhiteoutAnnotation = {
+              id: newAnnotationId("cut-wo"),
+              pageIndex,
+              type: "whiteout",
+              normX: liveBox.normX,
+              normY: liveBox.normY,
+              normW: liveBox.normW,
+              normH: liveBox.normH,
+            };
+
+            // 2. Movable image annotation at that spot
+            const movableImage: ImageAnnotation = {
+              id: newAnnotationId("cut-img"),
+              pageIndex,
+              type: "image",
+              normX: liveBox.normX,
+              normY: liveBox.normY,
+              normW: liveBox.normW,
+              normH: liveBox.normH,
+              dataUrl: croppedDataUrl,
+            };
+
+            pushHistory([...annotations, originalWhiteout, movableImage]);
+            setSelectedId(movableImage.id);
+            setActiveTool("select");
+            showNotification("Element detached! Drag anywhere on the page to move it.");
+          }
+        }
+      } else if (activeTool === "highlight") {
         const newHl: HighlightAnnotation = {
           id: newAnnotationId("hl"),
           pageIndex,
@@ -489,6 +652,28 @@ export function PdfEditorTool() {
 
     setLiveBox(null);
     dragStartPos.current = null;
+  };
+
+  // Modify or erase existing text helpers
+  const handleUpdateExistingText = (id: string, updates: Partial<ExistingTextItem>) => {
+    setExistingTextsMap((prev) => {
+      const list = prev[currentPage] || [];
+      return {
+        ...prev,
+        [currentPage]: list.map((item) => (item.id === id ? { ...item, ...updates } : item)),
+      };
+    });
+  };
+
+  const handleDeleteExistingText = (id: string) => {
+    handleUpdateExistingText(id, { isDeleted: true, isEdited: true });
+    setSelectedId(null);
+    setActiveEditingTextId(null);
+    showNotification("Original text removed and whited out.");
+  };
+
+  const handleRestoreExistingText = (id: string) => {
+    handleUpdateExistingText(id, { isDeleted: false, isEdited: false });
   };
 
   // Insert signature
@@ -538,7 +723,7 @@ export function PdfEditorTool() {
     e.target.value = "";
   };
 
-  // Export & Download edited PDF
+  // Export & Download edited PDF with combined existing text edits + elements
   const handleExportPdf = async () => {
     if (!pdfBytes) return;
 
@@ -546,7 +731,10 @@ export function PdfEditorTool() {
     setExportSuccess(false);
 
     try {
-      const editedBytes = await exportPdfWithAnnotations(pdfBytes, annotations);
+      const allExisting = Object.values(existingTextsMap).flat();
+      const combinedAnnotations = buildCombinedAnnotations(annotations, allExisting);
+      const editedBytes = await exportPdfWithAnnotations(pdfBytes, combinedAnnotations);
+
       const originalName = file?.name || "document.pdf";
       const cleanName = originalName.replace(/\.pdf$/i, "");
       const downloadFilename = `${cleanName}-edited.pdf`;
@@ -557,16 +745,18 @@ export function PdfEditorTool() {
       setTimeout(() => setExportSuccess(false), 5000);
     } catch (err) {
       console.error("Export PDF failed:", err);
-      alert("Failed to export edited PDF. Please check your annotations.");
+      alert("Failed to export edited PDF. Please check your modifications.");
     } finally {
       setIsExporting(false);
     }
   };
 
-  // Active page annotations
+  // Active page elements
   const currentPageIndex = currentPage - 1;
   const pageAnnotations = annotations.filter((a) => a.pageIndex === currentPageIndex);
+  const pageExistingTexts = existingTextsMap[currentPage] || [];
   const selectedAnnotation = annotations.find((a) => a.id === selectedId);
+  const selectedExistingText = pageExistingTexts.find((t) => t.id === selectedId);
 
   return (
     <div className="w-full flex flex-col gap-4">
@@ -582,7 +772,7 @@ export function PdfEditorTool() {
               Choose or Drop a PDF File to Edit
             </h3>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              Add text, signatures, highlights, drawings, shapes, and whiteout redactions directly in your browser.
+              Edit existing text, move existing images & elements, add signatures, freehand draw, highlight, and whiteout directly in your browser.
             </p>
           </div>
 
@@ -615,6 +805,14 @@ export function PdfEditorTool() {
       {/* Editor Interface (When PDF is loaded) */}
       {file && (
         <div className="w-full flex flex-col gap-3">
+          {/* Status Toast Notification */}
+          {statusNotification && (
+            <div className="flex items-center gap-2 px-4 py-2 bg-amber-500 text-black text-xs font-semibold rounded-xl shadow-md animate-in fade-in slide-in-from-top-2 duration-200">
+              <Info className="w-4 h-4" />
+              <span>{statusNotification}</span>
+            </div>
+          )}
+
           {/* Top Control Bar */}
           <div className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-2xl border border-border bg-card/80 backdrop-blur-md shadow-sm">
             {/* Left: File info & page navigation */}
@@ -705,9 +903,10 @@ export function PdfEditorTool() {
                   if (confirm("Reset and clear all annotations on this document?")) {
                     pushHistory([]);
                     setSelectedId(null);
+                    setExistingTextsMap({});
                   }
                 }}
-                disabled={annotations.length === 0}
+                disabled={annotations.length === 0 && Object.keys(existingTextsMap).length === 0}
                 className="p-2 rounded-xl border border-border hover:bg-red-500/10 hover:text-red-600 disabled:opacity-40 transition-colors"
                 title="Clear all annotations"
               >
@@ -724,6 +923,7 @@ export function PdfEditorTool() {
                     setPdfBytes(null);
                     setPdfDoc(null);
                     setAnnotations([]);
+                    setExistingTextsMap({});
                   }
                 }}
                 className="px-3 py-2 rounded-xl border border-border hover:bg-muted text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
@@ -760,9 +960,62 @@ export function PdfEditorTool() {
           {/* Tools Ribbon */}
           <div className="flex flex-col gap-2 p-3 rounded-2xl border border-border bg-card/60 backdrop-blur-sm">
             <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+              {/* Core Modes */}
+              <button
+                onClick={() => {
+                  setActiveTool("select");
+                  setActiveEditingTextId(null);
+                }}
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium whitespace-nowrap transition-all ${
+                  activeTool === "select"
+                    ? "bg-amber-500 text-black font-semibold shadow-sm"
+                    : "border border-border/80 hover:bg-muted text-muted-foreground hover:text-foreground"
+                }`}
+                title="Select and drag any element"
+              >
+                <MousePointer className="w-3.5 h-3.5" />
+                <span>Select & Move</span>
+              </button>
+
+              {/* Edit Existing Text Tool */}
+              <button
+                onClick={() => {
+                  setActiveTool("editText");
+                  showNotification("Click on any existing text in the PDF to edit or change it.");
+                }}
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium whitespace-nowrap transition-all ${
+                  activeTool === "editText"
+                    ? "bg-amber-500 text-black font-semibold shadow-sm"
+                    : "border border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20"
+                }`}
+                title="Click any existing word or sentence to edit"
+              >
+                <Edit2 className="w-3.5 h-3.5" />
+                <span>Edit Existing Text</span>
+              </button>
+
+              {/* Cut & Move Existing Element */}
+              <button
+                onClick={() => {
+                  setActiveTool("moveElement");
+                  showNotification("Drag a box around any image, photo, or element to move or erase it.");
+                }}
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium whitespace-nowrap transition-all ${
+                  activeTool === "moveElement"
+                    ? "bg-amber-500 text-black font-semibold shadow-sm"
+                    : "border border-blue-500/40 bg-blue-500/10 text-blue-700 dark:text-blue-400 hover:bg-blue-500/20"
+                }`}
+                title="Drag a box to cut, move, or erase any existing graphic or picture"
+              >
+                <Scissors className="w-3.5 h-3.5" />
+                <span>Cut & Move Element</span>
+              </button>
+
+              <div className="h-5 w-[1px] bg-border mx-1" />
+
+              {/* Drawing / Annotation Tools */}
               {[
-                { id: "select", label: "Select", icon: MousePointer },
-                { id: "text", label: "Text", icon: Type },
+                { id: "text", label: "Add Text", icon: Type },
                 { id: "draw", label: "Draw", icon: PenTool },
                 { id: "highlight", label: "Highlight", icon: Highlighter },
                 { id: "whiteout", label: "Whiteout", icon: Eraser },
@@ -776,7 +1029,8 @@ export function PdfEditorTool() {
                     key={tool.id}
                     onClick={() => {
                       setActiveTool(tool.id as ToolMode);
-                      if (tool.id !== "select") setSelectedId(null);
+                      setSelectedId(null);
+                      setActiveEditingTextId(null);
                     }}
                     className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium whitespace-nowrap transition-all ${
                       isActive
@@ -819,8 +1073,11 @@ export function PdfEditorTool() {
 
             {/* Contextual Properties Bar */}
             <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-border/40 text-xs">
-              {/* Text Tool Options */}
-              {(activeTool === "text" || (selectedAnnotation && selectedAnnotation.type === "text")) && (
+              {/* Text Tool Options (For new text or selected text) */}
+              {(activeTool === "text" ||
+                activeTool === "editText" ||
+                (selectedAnnotation && selectedAnnotation.type === "text") ||
+                selectedExistingText) && (
                 <div className="flex flex-wrap items-center gap-3">
                   <div className="flex items-center gap-1">
                     <span className="text-muted-foreground">Size:</span>
@@ -828,6 +1085,8 @@ export function PdfEditorTool() {
                       value={
                         selectedAnnotation && selectedAnnotation.type === "text"
                           ? selectedAnnotation.fontSize
+                          : selectedExistingText
+                          ? selectedExistingText.fontSize
                           : fontSize
                       }
                       onChange={(e) => {
@@ -839,6 +1098,8 @@ export function PdfEditorTool() {
                               a.id === selectedAnnotation.id ? { ...a, fontSize: newSz } : a
                             )
                           );
+                        } else if (selectedExistingText) {
+                          handleUpdateExistingText(selectedExistingText.id, { fontSize: newSz, isEdited: true });
                         }
                       }}
                       className="bg-muted px-2 py-1 rounded-lg border border-border text-xs focus:outline-none"
@@ -857,6 +1118,8 @@ export function PdfEditorTool() {
                       value={
                         selectedAnnotation && selectedAnnotation.type === "text"
                           ? selectedAnnotation.fontFamily
+                          : selectedExistingText
+                          ? selectedExistingText.fontFamily
                           : fontFamily
                       }
                       onChange={(e) => {
@@ -868,6 +1131,8 @@ export function PdfEditorTool() {
                               a.id === selectedAnnotation.id ? { ...a, fontFamily: fam } : a
                             )
                           );
+                        } else if (selectedExistingText) {
+                          handleUpdateExistingText(selectedExistingText.id, { fontFamily: fam, isEdited: true });
                         }
                       }}
                       className="bg-muted px-2 py-1 rounded-lg border border-border text-xs focus:outline-none"
@@ -888,6 +1153,8 @@ export function PdfEditorTool() {
                             a.id === selectedAnnotation.id ? { ...a, isBold: nextBold } : a
                           )
                         );
+                      } else if (selectedExistingText) {
+                        handleUpdateExistingText(selectedExistingText.id, { isBold: nextBold, isEdited: true });
                       }
                     }}
                     className={`px-2 py-1 rounded-lg border text-xs font-bold transition-colors ${
@@ -910,6 +1177,8 @@ export function PdfEditorTool() {
                                 a.id === selectedAnnotation.id ? { ...a, color: c.id } : a
                               )
                             );
+                          } else if (selectedExistingText) {
+                            handleUpdateExistingText(selectedExistingText.id, { color: c.id, isEdited: true });
                           }
                         }}
                         className={`w-5 h-5 rounded-full border transition-transform ${
@@ -920,6 +1189,16 @@ export function PdfEditorTool() {
                       />
                     ))}
                   </div>
+                </div>
+              )}
+
+              {/* Move Element Tool Info */}
+              {activeTool === "moveElement" && (
+                <div className="text-blue-600 dark:text-blue-400 text-xs flex items-center gap-2">
+                  <Scissors className="w-3.5 h-3.5" />
+                  <span>
+                    <strong>Cut & Move:</strong> Drag a box around any photo, logo, signature, or section to detach and move it anywhere.
+                  </span>
                 </div>
               )}
 
@@ -987,36 +1266,17 @@ export function PdfEditorTool() {
                 </div>
               )}
 
-              {/* Shape Tool Options */}
-              {(activeTool === "rect" || activeTool === "circle") && (
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-muted-foreground">Border color:</span>
-                    {COLOR_PRESETS.map((c) => (
-                      <button
-                        key={c.id}
-                        onClick={() => setShapeColor(c.id)}
-                        className={`w-5 h-5 rounded-full border transition-transform ${
-                          shapeColor === c.id ? "scale-125 border-foreground shadow" : "border-border"
-                        }`}
-                        style={{ backgroundColor: c.id }}
-                        title={c.label}
-                      />
-                    ))}
-                  </div>
-                  <span className="text-[11px] text-muted-foreground/80 pl-2">
-                    Tip: Click and drag on the page to draw shape.
-                  </span>
-                </div>
-              )}
-
-              {/* Delete Active Annotation Button */}
-              {selectedAnnotation && (
+              {/* Delete Active Annotation / Element Button */}
+              {(selectedAnnotation || selectedExistingText) && (
                 <div className="ml-auto flex items-center gap-2">
                   <button
                     onClick={() => {
-                      pushHistory(annotations.filter((a) => a.id !== selectedAnnotation.id));
-                      setSelectedId(null);
+                      if (selectedExistingText) {
+                        handleDeleteExistingText(selectedExistingText.id);
+                      } else if (selectedAnnotation) {
+                        pushHistory(annotations.filter((a) => a.id !== selectedAnnotation.id));
+                        setSelectedId(null);
+                      }
                     }}
                     className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-red-500/10 text-red-600 hover:bg-red-500/20 transition-colors font-medium text-xs"
                   >
@@ -1075,9 +1335,9 @@ export function PdfEditorTool() {
                 className="relative bg-white shadow-2xl rounded-sm transition-shadow select-none"
                 style={{
                   cursor:
-                    activeTool === "draw"
+                    activeTool === "draw" || activeTool === "moveElement"
                       ? "crosshair"
-                      : activeTool === "text"
+                      : activeTool === "text" || activeTool === "editText"
                       ? "text"
                       : activeTool === "highlight" || activeTool === "whiteout" || activeTool === "rect" || activeTool === "circle"
                       ? "crosshair"
@@ -1097,7 +1357,7 @@ export function PdfEditorTool() {
                   </div>
                 )}
 
-                {/* Interactive Annotations Overlay */}
+                {/* Interactive Overlay Layer */}
                 <div
                   ref={overlayRef}
                   onPointerDown={handleOverlayPointerDown}
@@ -1258,7 +1518,7 @@ export function PdfEditorTool() {
                       />
                     )}
 
-                    {/* Live Box Selection Preview (Highlight / Whiteout / Shapes) */}
+                    {/* Live Box Selection Preview (Highlight / Whiteout / Cut & Move / Shapes) */}
                     {liveBox && (
                       <rect
                         x={`${liveBox.normX * 100}%`}
@@ -1270,17 +1530,169 @@ export function PdfEditorTool() {
                             ? highlightColor
                             : activeTool === "whiteout"
                             ? "#FFFFFF"
+                            : activeTool === "moveElement"
+                            ? "#3B82F6"
                             : "transparent"
                         }
-                        fillOpacity={activeTool === "highlight" ? 0.35 : 1}
-                        stroke={activeTool === "rect" || activeTool === "circle" ? shapeColor : "#3B82F6"}
+                        fillOpacity={activeTool === "highlight" ? 0.35 : activeTool === "moveElement" ? 0.2 : 1}
+                        stroke={activeTool === "moveElement" ? "#2563EB" : activeTool === "rect" || activeTool === "circle" ? shapeColor : "#3B82F6"}
                         strokeWidth="2"
                         strokeDasharray="4 4"
                       />
                     )}
                   </svg>
 
-                  {/* DOM Layer: Text Annotations */}
+                  {/* Existing PDF Text Items Layer (Editable & Movable) */}
+                  {pageExistingTexts.map((txt) => {
+                    const isEditing = activeEditingTextId === txt.id;
+                    const isSelected = selectedId === txt.id;
+
+                    if (txt.isDeleted) {
+                      return (
+                        <div
+                          key={txt.id}
+                          style={{
+                            position: "absolute",
+                            left: `${txt.origNormX * 100}%`,
+                            top: `${txt.origNormY * 100}%`,
+                            width: `${txt.origNormW * 100}%`,
+                            height: `${txt.origNormH * 100}%`,
+                          }}
+                          className="bg-white border border-dashed border-red-300 pointer-events-auto flex items-center justify-between text-[10px] text-red-500 px-1 select-none z-10"
+                          title="Original text erased"
+                        >
+                          <span className="line-through truncate opacity-60">{txt.originalText}</span>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleRestoreExistingText(txt.id);
+                            }}
+                            className="text-blue-600 hover:underline font-bold text-[9px] ml-1 shrink-0"
+                          >
+                            Restore
+                          </button>
+                        </div>
+                      );
+                    }
+
+                    // Modified or currently active editing text
+                    if (txt.isEdited || isEditing) {
+                      return (
+                        <React.Fragment key={txt.id}>
+                          {/* Whiteout original location so old text is completely hidden */}
+                          <div
+                            style={{
+                              position: "absolute",
+                              left: `${txt.origNormX * 100}%`,
+                              top: `${txt.origNormY * 100}%`,
+                              width: `${txt.origNormW * 100}%`,
+                              height: `${txt.origNormH * 100}%`,
+                            }}
+                            className="bg-white pointer-events-none z-0"
+                          />
+
+                          {/* Editable Text Box with Drag Handle */}
+                          <div
+                            style={{
+                              position: "absolute",
+                              left: `${txt.normX * 100}%`,
+                              top: `${txt.normY * 100}%`,
+                              fontSize: `${txt.fontSize * zoomScale}px`,
+                              color: txt.color,
+                              fontFamily:
+                                txt.fontFamily === "Times"
+                                  ? "Times New Roman, serif"
+                                  : txt.fontFamily === "Courier"
+                                  ? "Courier, monospace"
+                                  : "Helvetica, Arial, sans-serif",
+                              fontWeight: txt.isBold ? "bold" : "normal",
+                            }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedId(txt.id);
+                              setActiveEditingTextId(txt.id);
+                            }}
+                            className={`pointer-events-auto flex items-center gap-1 group/txt rounded transition-all leading-tight z-10 ${
+                              isSelected || isEditing
+                                ? "ring-2 ring-amber-500 bg-amber-50/90 dark:bg-amber-950/40 shadow-sm"
+                                : "hover:ring-1 hover:ring-amber-500/50 bg-white/80"
+                            }`}
+                          >
+                            {/* Grip handle to move text anywhere */}
+                            <div
+                              onPointerDown={(e) =>
+                                handleStartDragItem(e, txt.id, "existingText", txt.normX, txt.normY)
+                              }
+                              className="cursor-move p-0.5 text-muted-foreground opacity-60 hover:opacity-100 touch-none shrink-0"
+                              title="Drag to reposition text"
+                            >
+                              <GripVertical className="w-3.5 h-3.5" />
+                            </div>
+
+                            <input
+                              type="text"
+                              value={txt.currentText}
+                              autoFocus={isEditing}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                handleUpdateExistingText(txt.id, { currentText: val, isEdited: true });
+                              }}
+                              onBlur={() => {
+                                setActiveEditingTextId(null);
+                              }}
+                              className="bg-transparent border-none outline-none p-0.5 m-0 min-w-[50px]"
+                              style={{ color: txt.color, font: "inherit" }}
+                            />
+
+                            {(isSelected || isEditing) && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteExistingText(txt.id);
+                                }}
+                                className="p-0.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded shrink-0"
+                                title="Erase / Delete this text"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            )}
+                          </div>
+                        </React.Fragment>
+                      );
+                    }
+
+                    // Hoverable existing text hotspot
+                    if (activeTool === "select" || activeTool === "editText") {
+                      return (
+                        <div
+                          key={txt.id}
+                          style={{
+                            position: "absolute",
+                            left: `${txt.origNormX * 100}%`,
+                            top: `${txt.origNormY * 100}%`,
+                            width: `${txt.origNormW * 100}%`,
+                            height: `${txt.origNormH * 100}%`,
+                          }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveEditingTextId(txt.id);
+                            setSelectedId(txt.id);
+                            handleUpdateExistingText(txt.id, { isEdited: true });
+                          }}
+                          className="pointer-events-auto cursor-pointer border border-transparent hover:border-amber-500 hover:bg-amber-500/10 transition-colors rounded-sm group/hover flex items-center justify-end z-10"
+                          title="Click to edit or move this text"
+                        >
+                          <span className="hidden group-hover/hover:inline-flex items-center gap-0.5 px-1 py-0.5 rounded bg-amber-500 text-black text-[9px] font-bold shadow-sm translate-y-[-100%] absolute right-0 top-0">
+                            <Edit2 className="w-2.5 h-2.5" /> Edit
+                          </span>
+                        </div>
+                      );
+                    }
+
+                    return null;
+                  })}
+
+                  {/* DOM Layer: User Added Text Annotations */}
                   {pageAnnotations
                     .filter((a): a is TextAnnotation => a.type === "text")
                     .map((txt) => {
@@ -1306,12 +1718,22 @@ export function PdfEditorTool() {
                             e.stopPropagation();
                             setSelectedId(txt.id);
                           }}
-                          className={`cursor-move p-1 rounded transition-all leading-tight ${
+                          className={`pointer-events-auto flex items-center gap-1 group/user rounded transition-all leading-tight z-10 ${
                             isSelected
-                              ? "ring-2 ring-blue-500 bg-blue-50/40 shadow-sm"
-                              : "hover:ring-1 hover:ring-amber-500/50"
+                              ? "ring-2 ring-blue-500 bg-blue-50/80 dark:bg-blue-950/40 shadow-sm"
+                              : "hover:ring-1 hover:ring-amber-500/50 bg-white/70"
                           }`}
                         >
+                          <div
+                            onPointerDown={(e) =>
+                              handleStartDragItem(e, txt.id, "annotation", txt.normX, txt.normY)
+                            }
+                            className="cursor-move p-0.5 text-muted-foreground opacity-60 hover:opacity-100 touch-none shrink-0"
+                            title="Drag to move text"
+                          >
+                            <GripVertical className="w-3.5 h-3.5" />
+                          </div>
+
                           <input
                             type="text"
                             value={txt.text}
@@ -1321,18 +1743,15 @@ export function PdfEditorTool() {
                                 prev.map((a) => (a.id === txt.id ? { ...a, text: val } : a))
                               );
                             }}
-                            onBlur={() => {
-                              // Save state to history on blur
-                              pushHistory(annotations);
-                            }}
-                            className="bg-transparent border-none outline-none p-0 m-0 w-auto min-w-[60px]"
+                            onBlur={() => pushHistory(annotations)}
+                            className="bg-transparent border-none outline-none p-0.5 m-0 min-w-[60px]"
                             style={{ color: txt.color, font: "inherit" }}
                           />
                         </div>
                       );
                     })}
 
-                  {/* DOM Layer: Signature & Image Annotations */}
+                  {/* DOM Layer: Cut Elements, Signature & Image Annotations */}
                   {pageAnnotations
                     .filter((a): a is ImageAnnotation => a.type === "signature" || a.type === "image")
                     .map((img) => {
@@ -1351,13 +1770,24 @@ export function PdfEditorTool() {
                             e.stopPropagation();
                             setSelectedId(img.id);
                           }}
-                          className={`cursor-move group select-none transition-all ${
+                          className={`pointer-events-auto group select-none transition-all z-10 ${
                             isSelected ? "ring-2 ring-blue-500 shadow-md" : "hover:ring-1 hover:ring-amber-500/50"
                           }`}
                         >
+                          {/* Drag handle */}
+                          <div
+                            onPointerDown={(e) =>
+                              handleStartDragItem(e, img.id, "annotation", img.normX, img.normY)
+                            }
+                            className="absolute -top-3 -left-3 p-1 rounded-full bg-blue-600 text-white shadow cursor-move touch-none opacity-0 group-hover:opacity-100 transition-opacity z-20"
+                            title="Drag to reposition element"
+                          >
+                            <Move className="w-3 h-3" />
+                          </div>
+
                           <img
                             src={img.dataUrl}
-                            alt="Annotation"
+                            alt="Movable Element"
                             className="w-full h-full object-contain pointer-events-none"
                           />
                         </div>

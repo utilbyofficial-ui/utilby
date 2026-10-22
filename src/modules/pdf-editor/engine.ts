@@ -2,6 +2,8 @@ import { getPdfLib } from "@/modules/pdf/build";
 
 export type ToolMode =
   | "select"
+  | "editText"
+  | "moveElement"
   | "text"
   | "draw"
   | "highlight"
@@ -10,6 +12,27 @@ export type ToolMode =
   | "circle"
   | "signature"
   | "image";
+
+export interface ExistingTextItem {
+  id: string;
+  pageIndex: number;
+  originalText: string;
+  currentText: string;
+  normX: number;
+  normY: number;
+  normW: number;
+  normH: number;
+  fontSize: number;
+  color: string;
+  fontFamily: "Helvetica" | "Times" | "Courier";
+  isBold?: boolean;
+  isEdited: boolean;
+  isDeleted?: boolean;
+  origNormX: number;
+  origNormY: number;
+  origNormW: number;
+  origNormH: number;
+}
 
 export type AnnotationType =
   | "text"
@@ -403,4 +426,197 @@ export async function exportPdfWithAnnotations(
   }
 
   return doc.save();
+}
+
+/**
+ * Extracts and groups raw text items from PDF.js getTextContent into editable text lines
+ */
+export function groupPdfTextItems(
+  rawItems: Array<{
+    str?: string;
+    transform?: number[];
+    width?: number;
+    height?: number;
+    fontName?: string;
+  }>,
+  vpWidth: number,
+  vpHeight: number,
+  pageIndex: number
+): ExistingTextItem[] {
+  const items: Array<{
+    str: string;
+    tx: number;
+    ty: number;
+    w: number;
+    h: number;
+    fontSize: number;
+    fontFamily: "Helvetica" | "Times" | "Courier";
+    isBold?: boolean;
+  }> = [];
+
+  for (const it of rawItems) {
+    if (!it.str || !it.str.trim() || !it.transform || it.transform.length < 6) continue;
+    const tx = it.transform[4]!;
+    const ty = it.transform[5]!;
+    const fontSize = Math.abs(it.transform[0] || it.transform[3] || 12);
+    const w = it.width || (fontSize * it.str.length * 0.5);
+    const h = it.height || fontSize;
+    const fn = (it.fontName || "").toLowerCase();
+    const isTimes = fn.includes("times") || fn.includes("serif") || fn.includes("roman");
+    const isCourier = fn.includes("courier") || fn.includes("mono");
+    const isBold = fn.includes("bold") || fn.includes("black") || fn.includes("heavy");
+    const fontFamily: "Helvetica" | "Times" | "Courier" = isTimes ? "Times" : isCourier ? "Courier" : "Helvetica";
+
+    items.push({
+      str: it.str,
+      tx,
+      ty,
+      w,
+      h,
+      fontSize,
+      fontFamily,
+      isBold,
+    });
+  }
+
+  // Sort top-to-bottom (PDF ty is higher near top), then left-to-right (tx)
+  items.sort((a, b) => {
+    if (Math.abs(a.ty - b.ty) > 4) {
+      return b.ty - a.ty;
+    }
+    return a.tx - b.tx;
+  });
+
+  const lines: typeof items = [];
+  let current: (typeof items)[0] | null = null;
+
+  for (const it of items) {
+    if (!current) {
+      current = { ...it };
+      continue;
+    }
+
+    const sameBaseline = Math.abs(current.ty - it.ty) <= (it.fontSize * 0.55);
+    const adjacent = (it.tx - (current.tx + current.w)) <= (it.fontSize * 2.5);
+
+    if (sameBaseline && adjacent && it.tx >= current.tx) {
+      const space = (it.tx > current.tx + current.w + (it.fontSize * 0.15)) ? " " : "";
+      current.str += space + it.str;
+      current.w = (it.tx + it.w) - current.tx;
+      current.h = Math.max(current.h, it.h);
+    } else {
+      lines.push(current);
+      current = { ...it };
+    }
+  }
+  if (current) lines.push(current);
+
+  return lines.map((l, idx) => {
+    const normX = Math.max(0, Math.min(1, l.tx / vpWidth));
+    // In DOM, origin is top-left:
+    const normY = Math.max(0, Math.min(1, (vpHeight - l.ty - l.h) / vpHeight));
+    const normW = Math.max(0.01, Math.min(1, l.w / vpWidth));
+    const normH = Math.max(0.01, Math.min(1, l.h / vpHeight));
+
+    return {
+      id: `orig-txt-${pageIndex}-${idx}-${Date.now().toString(36)}`,
+      pageIndex,
+      originalText: l.str,
+      currentText: l.str,
+      normX,
+      normY,
+      normW,
+      normH,
+      fontSize: Math.round(l.fontSize) || 14,
+      color: "#16141F",
+      fontFamily: l.fontFamily,
+      isBold: l.isBold,
+      isEdited: false,
+      isDeleted: false,
+      origNormX: normX,
+      origNormY: normY,
+      origNormW: normW,
+      origNormH: normH,
+    };
+  });
+}
+
+/**
+ * Merges edited/deleted existing PDF text into annotations for final export:
+ * - Adds whiteout over the original location to erase the old text from the PDF.
+ * - Adds a new TextAnnotation with updated text at the target coordinates.
+ */
+export function buildCombinedAnnotations(
+  userAnnotations: Annotation[],
+  existingTexts: ExistingTextItem[]
+): Annotation[] {
+  const result: Annotation[] = [...userAnnotations];
+
+  for (const item of existingTexts) {
+    if (!item.isEdited && !item.isDeleted) continue;
+
+    // 1. Add whiteout over original location to erase the original text cleanly
+    const padX = 0.003;
+    const padY = 0.003;
+    result.push({
+      id: `whiteout-for-${item.id}`,
+      pageIndex: item.pageIndex,
+      type: "whiteout",
+      normX: Math.max(0, item.origNormX - padX),
+      normY: Math.max(0, item.origNormY - padY),
+      normW: Math.min(1, item.origNormW + padX * 2),
+      normH: Math.min(1, item.origNormH + padY * 2),
+    });
+
+    // 2. If not deleted, draw the new/edited text at its (possibly moved) location
+    if (!item.isDeleted && item.currentText.trim()) {
+      result.push({
+        id: `text-for-${item.id}`,
+        pageIndex: item.pageIndex,
+        type: "text",
+        normX: item.normX,
+        normY: item.normY,
+        text: item.currentText,
+        fontSize: item.fontSize,
+        color: item.color,
+        fontFamily: item.fontFamily,
+        isBold: item.isBold,
+      });
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Captures a normalized rectangular sub-region of an HTML5 Canvas as a PNG data URL.
+ * Used for cutting/moving existing graphics, images, logos, or tables.
+ */
+export function captureCanvasRegion(
+  sourceCanvas: HTMLCanvasElement,
+  normX: number,
+  normY: number,
+  normW: number,
+  normH: number
+): string | null {
+  try {
+    const sx = Math.floor(normX * sourceCanvas.width);
+    const sy = Math.floor(normY * sourceCanvas.height);
+    const sw = Math.ceil(normW * sourceCanvas.width);
+    const sh = Math.ceil(normH * sourceCanvas.height);
+
+    if (sw <= 0 || sh <= 0) return null;
+
+    const cropCanvas = document.createElement("canvas");
+    cropCanvas.width = sw;
+    cropCanvas.height = sh;
+    const ctx = cropCanvas.getContext("2d");
+    if (!ctx) return null;
+
+    ctx.drawImage(sourceCanvas, sx, sy, sw, sh, 0, 0, sw, sh);
+    return cropCanvas.toDataURL("image/png");
+  } catch (err) {
+    console.error("captureCanvasRegion error:", err);
+    return null;
+  }
 }
