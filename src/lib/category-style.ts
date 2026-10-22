@@ -40,6 +40,7 @@ const TOOL_GLYPHS: Record<string, string> = {
   "delete-pdf-pages": "−",
   "extract-pdf-pages": "⇱",
   "jpg-to-pdf": "JPG",
+  "pdf-to-jpg": "IMG",
   "pdf-editor": "✎",
   "pdf-compressor": "ZIP",
 };

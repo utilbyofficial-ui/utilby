@@ -29,8 +29,8 @@ Deploy: push to `main` → Cloudflare builds and serves `out/` (`wrangler.json`)
 5. If the icon name is new, add it to nothing else — homepage uses `ToolGlyph`, not lucide icons.
 6. `npm run build && npm test`, then push.
 
-## Live tools (15)
-Text: Word Counter, Text Case Converter · Developer: JSON Formatter, QR Code Generator · Calculators: Percentage · Security: Password Generator · Image: Image Compressor, Image Resizer · PDF: Merge, Split, Organize, Rotate, Delete Pages, Extract Pages, JPG to PDF.
+## Live tools (16)
+Text: Word Counter, Text Case Converter · Developer: JSON Formatter, QR Code Generator · Calculators: Percentage · Security: Password Generator · Image: Image Compressor, Image Resizer · PDF: Merge, Split, Organize, Rotate, Delete Pages, Extract Pages, JPG to PDF, PDF to JPG.
 Coming soon (registry, `isReady: false`): PDF Editor, PDF Compressor.
 
 ## PDF toolkit architecture (`src/modules/pdf/`)
