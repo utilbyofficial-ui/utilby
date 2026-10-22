@@ -61,15 +61,25 @@ export function ToolLayout({
 
       {/* Tool hero on the category tint */}
       <div className={cn("border-b border-slate-200/60", style.soft)}>
-        <div className="mx-auto max-w-[1240px] px-4 pb-10 pt-6 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-[1240px] px-4 py-3.5 sm:py-6 sm:pb-8 sm:px-6 lg:px-8">
           <Breadcrumbs items={breadcrumbs} />
-          <div className="mt-6 flex flex-col gap-5 sm:flex-row sm:items-start">
-            {tool && <ToolGlyph tool={tool} size="xl" />}
-            <div className="min-w-0">
-              <h1 className="font-display text-4xl font-extrabold tracking-[-0.03em] text-ink sm:text-5xl">{title}</h1>
-              <p className="mt-3 max-w-3xl text-base leading-relaxed text-slate-700 sm:text-lg">{subtitle}</p>
-              <p className="mt-4 inline-flex items-center gap-2 rounded-full bg-white px-3.5 py-1.5 text-xs font-semibold text-ink shadow-soft">
-                <ShieldCheck className="h-4 w-4 text-sec" />
+          <div className="mt-2.5 flex items-start gap-3 sm:mt-5 sm:gap-5">
+            {tool && (
+              <ToolGlyph
+                tool={tool}
+                size="md"
+                className="h-10 w-10 text-xs rounded-xl sm:h-16 sm:w-16 sm:rounded-[20px] sm:text-lg"
+              />
+            )}
+            <div className="min-w-0 flex-1">
+              <h1 className="font-display text-2xl font-extrabold tracking-[-0.02em] text-ink sm:text-4xl lg:text-5xl leading-tight">
+                {title}
+              </h1>
+              <p className="mt-1 max-w-3xl text-xs leading-relaxed text-slate-600 sm:mt-2 sm:text-base sm:text-slate-700">
+                {subtitle}
+              </p>
+              <p className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-white/95 px-2.5 py-1 text-[11px] font-semibold text-ink shadow-2xs sm:mt-3.5 sm:px-3.5 sm:py-1.5 sm:text-xs">
+                <ShieldCheck className="h-3.5 w-3.5 text-sec sm:h-4 sm:w-4" />
                 Runs in your browser · Files never uploaded
               </p>
             </div>
@@ -79,7 +89,7 @@ export function ToolLayout({
 
       <div className="mx-auto max-w-[1240px] px-4 sm:px-6 lg:px-8">
         {/* Interactive tool */}
-        <div className="relative -mt-0 pt-8">{children}</div>
+        <div className="relative pt-4 sm:pt-6 lg:pt-8">{children}</div>
 
         <AdSlot slotId={`tool-slot-${toolId}`} format="horizontal-banner" />
 
