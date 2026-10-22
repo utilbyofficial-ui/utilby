@@ -97,8 +97,9 @@ export const TOOLS: ToolMeta[] = [
     shortDescription: "Resize images to exact pixel dimensions, maintain aspect ratio, and export to WebP/JPG/PNG.",
     longDescription: "Fast browser-based image resizer with social media presets and zero server uploads.",
     iconName: "Maximize2",
-    isReady: false,
-    keywords: ["image resizer", "resize image online", "resize photo to pixels"],
+    isReady: true,
+    featured: true,
+    keywords: ["image resizer", "resize image online", "resize photo to pixels", "resize image for instagram", "batch image resizer"],
   },
   {
     id: "image-compressor",
