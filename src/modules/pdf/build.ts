@@ -1,5 +1,14 @@
-import { PDFDocument, degrees } from "pdf-lib";
+import type { PDFDocument } from "pdf-lib";
 import { PageItem, A4, LETTER, fitImageOnPage, normalizeRotation } from "./pages";
+
+let pdfLibPromise: Promise<typeof import("pdf-lib")> | null = null;
+
+export function getPdfLib() {
+  if (!pdfLibPromise) {
+    pdfLibPromise = import("pdf-lib");
+  }
+  return pdfLibPromise;
+}
 
 export interface PdfSourceData {
   kind: "pdf";
@@ -36,6 +45,7 @@ export class EncryptedPdfError extends Error {
 }
 
 export async function loadPdf(bytes: Uint8Array | ArrayBuffer): Promise<PDFDocument> {
+  const { PDFDocument } = await getPdfLib();
   try {
     return await PDFDocument.load(bytes, { updateMetadata: false });
   } catch (e) {
@@ -66,6 +76,7 @@ export async function buildPdf(
   sources: Map<string, SourceData>,
   options: BuildOptions = DEFAULT_BUILD_OPTIONS
 ): Promise<Uint8Array> {
+  const { PDFDocument, degrees } = await getPdfLib();
   const out = await PDFDocument.create({ updateMetadata: false });
   const embeddedImages = new Map<string, Awaited<ReturnType<PDFDocument["embedPng"]>>>();
 

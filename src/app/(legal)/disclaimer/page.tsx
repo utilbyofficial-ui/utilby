@@ -1,53 +1,68 @@
 import type { Metadata } from "next";
 import { Breadcrumbs } from "@/components/layout/Breadcrumbs";
+import { AlertCircle } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: "Disclaimer | Utilby Network",
+  title: "Disclaimer – Utilby Calculations & Utilities",
   description:
-    "Disclaimer regarding calculation results, security password generation, and third-party advertising on Utilby Network.",
+    "Disclaimer regarding calculation results, password generation, and third-party advertising on Utilby.",
 };
 
 export default function DisclaimerPage() {
   return (
-    <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6 lg:px-8">
+    <div className="mx-auto max-w-[900px] px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
       <Breadcrumbs items={[{ label: "Disclaimer" }]} />
 
-      <div className="rounded-3xl border border-slate-200/80 bg-white p-6 sm:p-10 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <h1 className="text-3xl font-black text-slate-900 dark:text-white">
+      <div className="mt-6">
+        <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3.5 py-1.5 text-xs font-semibold text-slate-800">
+          <AlertCircle className="h-4 w-4 text-slate-600" />
+          General Productivity Notice
+        </span>
+        <h1 className="mt-4 font-display text-3xl font-extrabold tracking-tight text-ink sm:text-5xl">
           Disclaimer
         </h1>
-        <p className="mt-2 text-xs text-slate-400">
+        <p className="mt-2 text-sm text-slate-500">
           Last updated: October 2026
         </p>
+      </div>
 
-        <div className="prose prose-slate max-w-none dark:prose-invert space-y-6 mt-8 text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-          <h2 className="text-lg font-bold text-slate-900 dark:text-white">
-            1. General Informational Use Only
-          </h2>
-          <p>
-            All utility calculators, statistical analyzers, formatting engines, and password generators provided on Utilby are intended exclusively for general productivity, educational, and computational assistance. They do not constitute official financial, legal, cryptographic audit, or investment advice.
-          </p>
+      <div className="mt-8 rounded-3xl border border-slate-200/80 bg-white p-7 sm:p-10 shadow-soft">
+        <div className="space-y-8 text-sm sm:text-base leading-relaxed text-slate-700">
+          <div>
+            <h2 className="font-display text-xl font-bold tracking-tight text-ink sm:text-2xl">
+              1. Informational & Educational Use Only
+            </h2>
+            <p className="mt-3">
+              All tools, calculators, text analyzers, formatting utilities, and password generators provided on Utilby are intended for general productivity, educational, and workflow assistance. They do not constitute certified financial, legal, cryptographic, or investment advice.
+            </p>
+          </div>
 
-          <h2 className="text-lg font-bold text-slate-900 dark:text-white">
-            2. Calculation Accuracy
-          </h2>
-          <p>
-            Although our algorithms and mathematical formulas are rigorously tested through automated test suites, rounding variations or unexpected floating-point edge cases may occur in rare circumstances. Users are advised to double-check critical financial percentages, tax computations, or business accounting numbers independently.
-          </p>
+          <div className="border-t border-slate-100 pt-8">
+            <h2 className="font-display text-xl font-bold tracking-tight text-ink sm:text-2xl">
+              2. Accuracy of Calculations
+            </h2>
+            <p className="mt-3">
+              While our algorithms and mathematical formulas are rigorously tested against automated test suites, floating-point rounding or edge cases may occasionally occur. Users are advised to independently verify critical business accounting, tax calculations, or high-stakes numbers.
+            </p>
+          </div>
 
-          <h2 className="text-lg font-bold text-slate-900 dark:text-white">
-            3. Password Security & Storage
-          </h2>
-          <p>
-            While our password generator uses cryptographically secure pseudo-random number generators (CSPRNG), the ultimate safety of your online accounts depends on how you store and handle generated credentials (e.g., using a reputable password manager, enabling multi-factor authentication, and avoiding public computer exposure). Utilby does not save passwords and is not responsible for lost or compromised credentials.
-          </p>
+          <div className="border-t border-slate-100 pt-8">
+            <h2 className="font-display text-xl font-bold tracking-tight text-ink sm:text-2xl">
+              3. Password Storage & Management
+            </h2>
+            <p className="mt-3">
+              Our password generator uses the browser&apos;s cryptographically secure pseudo-random number generator (window.crypto). However, the ultimate security of your accounts depends on how you store and handle credentials. Utilby never saves passwords and cannot retrieve lost or forgotten passwords.
+            </p>
+          </div>
 
-          <h2 className="text-lg font-bold text-slate-900 dark:text-white">
-            4. External Links & Advertisements
-          </h2>
-          <p>
-            Our website may contain links to external sites or third-party advertisements (such as Google AdSense). We do not control, endorse, or assume responsibility for the content, privacy practices, or goods and services offered on external third-party websites.
-          </p>
+          <div className="border-t border-slate-100 pt-8">
+            <h2 className="font-display text-xl font-bold tracking-tight text-ink sm:text-2xl">
+              4. External Links & Display Advertising
+            </h2>
+            <p className="mt-3">
+              Utilby may include links to external resources or display advertisements (via Google AdSense). We do not control, endorse, or assume responsibility for the content, privacy practices, or products offered by external third-party sites.
+            </p>
+          </div>
         </div>
       </div>
     </div>

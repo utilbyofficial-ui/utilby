@@ -74,7 +74,7 @@ const EMPTY_VCARD: VCardData = {
 };
 
 const selectClass =
-  "h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100";
+  "h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-ink/20 focus:border-ink";
 
 function useDebounced<T>(value: T, delay: number): T {
   const [debounced, setDebounced] = React.useState(value);
@@ -243,8 +243,8 @@ export function QrCodeGeneratorTool() {
             onClick={() => setType(id)}
             className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs sm:text-sm font-semibold transition-colors ${
               type === id
-                ? "bg-indigo-600 text-white shadow-sm"
-                : "bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+                ? "bg-ink text-white shadow-sm"
+                : "bg-slate-100 text-slate-700 hover:bg-slate-200"
             }`}
           >
             <Icon className="h-4 w-4" />
@@ -311,12 +311,12 @@ export function QrCodeGeneratorTool() {
                     />
                   )}
                 </div>
-                <label className="flex items-center gap-3 text-sm text-slate-700 dark:text-slate-300 cursor-pointer select-none">
+                <label className="flex items-center gap-3 text-sm text-slate-700 cursor-pointer select-none">
                   <input
                     type="checkbox"
                     checked={wifi.hidden}
                     onChange={(e) => setWifi({ ...wifi, hidden: e.target.checked })}
-                    className="h-4 w-4 rounded accent-indigo-600"
+                    className="h-4 w-4 rounded accent-ink"
                   />
                   Hidden network
                 </label>
@@ -447,7 +447,7 @@ export function QrCodeGeneratorTool() {
               <button
                 type="button"
                 onClick={resetStyle}
-                className="inline-flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-indigo-600"
+                className="inline-flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-ink"
               >
                 <RotateCcw className="h-3.5 w-3.5" /> Reset
               </button>
@@ -490,8 +490,8 @@ export function QrCodeGeneratorTool() {
                     onClick={() => setStyle({ ...style, errorCorrection: lvl.id })}
                     className={`rounded-lg px-2 py-1.5 text-xs font-semibold transition-colors ${
                       style.errorCorrection === lvl.id
-                        ? "bg-indigo-600 text-white"
-                        : "bg-white text-slate-700 border border-slate-200 hover:bg-slate-100 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-300"
+                        ? "bg-ink text-white"
+                        : "bg-white text-slate-700 border border-slate-200 hover:bg-slate-100"
                     }`}
                   >
                     {lvl.label}
@@ -503,7 +503,7 @@ export function QrCodeGeneratorTool() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 items-end gap-4">
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-slate-700 dark:text-slate-300">PNG Size</label>
+                <label className="text-xs font-medium text-slate-700 block">PNG Size</label>
                 <select
                   className={selectClass}
                   value={style.size}
@@ -518,7 +518,7 @@ export function QrCodeGeneratorTool() {
               </div>
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-medium text-slate-700 dark:text-slate-300">Quiet Zone</label>
+                  <label className="text-xs font-medium text-slate-700">Quiet Zone</label>
                   <span className="font-mono text-xs text-slate-500">{style.margin}</span>
                 </div>
                 <input
@@ -527,7 +527,7 @@ export function QrCodeGeneratorTool() {
                   max={8}
                   value={style.margin}
                   onChange={(e) => setStyle({ ...style, margin: Number(e.target.value) })}
-                  className="w-full accent-indigo-600 cursor-pointer h-10"
+                  className="w-full accent-ink cursor-pointer h-10"
                 />
               </div>
             </div>

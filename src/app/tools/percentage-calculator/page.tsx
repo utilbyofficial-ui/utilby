@@ -3,7 +3,7 @@ import { ToolLayout } from "@/components/shared/ToolLayout";
 import { PercentageCalculatorTool } from "@/modules/percentage/PercentageCalculatorTool";
 
 export const metadata: Metadata = {
-  title: "Free Online Percentage Calculator with Formulas | Utilby",
+  title: "Percentage Calculator – Free Percentage Calculator with Formulas | Utilby",
   description:
     "Fast and accurate percentage calculator: find X% of Y, calculate percentage change, percentage difference, and retail discount savings.",
   keywords: [

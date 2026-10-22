@@ -63,7 +63,7 @@ const RESIZE_PRESETS = [
 ];
 
 const selectClass =
-  "h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100";
+  "h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-ink/20 focus:border-ink";
 
 let idCounter = 0;
 const newId = () => `img-${Date.now()}-${idCounter++}`;
@@ -103,7 +103,7 @@ function CompareSlider({ before, after, onClose }: { before: string; after: stri
         <span className="absolute left-2 top-2 rounded bg-slate-900/70 px-2 py-0.5 text-[10px] font-semibold text-white">
           Original
         </span>
-        <span className="absolute right-2 top-2 rounded bg-indigo-600/90 px-2 py-0.5 text-[10px] font-semibold text-white">
+        <span className="absolute right-2 top-2 rounded bg-ink px-2 py-0.5 text-[10px] font-semibold text-white">
           Compressed
         </span>
         <input
@@ -313,14 +313,14 @@ export function ImageCompressorTool() {
           items.length ? "py-6" : "py-12"
         } ${
           dragging
-            ? "border-indigo-500 bg-indigo-50/60 dark:bg-indigo-950/30"
-            : "border-slate-300 bg-slate-50/60 hover:border-indigo-400 hover:bg-indigo-50/30 dark:border-slate-700 dark:bg-slate-800/30"
+            ? "border-ink bg-slate-100"
+            : "border-slate-300 bg-slate-50/60 hover:border-slate-400 hover:bg-slate-100/60"
         }`}
       >
-        <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-white shadow-sm ring-1 ring-slate-200 dark:bg-slate-900 dark:ring-slate-700">
-          <UploadCloud className="h-6 w-6 text-indigo-600" />
+        <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
+          <UploadCloud className="h-6 w-6 text-ink" />
         </div>
-        <p className="text-sm font-semibold text-slate-900 dark:text-white">
+        <p className="text-sm font-semibold text-slate-900">
           {items.length ? "Add more images" : "Drop images here or click to browse"}
         </p>
         <p className="mt-1 text-xs text-slate-500">JPG, PNG, WebP, GIF, BMP • Up to 50 MB each • Multiple files supported</p>
@@ -338,20 +338,20 @@ export function ImageCompressorTool() {
       </div>
 
       {notice && (
-        <div className="mt-4 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300">
+        <div className="mt-4 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
           <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
           <span>{notice}</span>
         </div>
       )}
 
       {/* Settings */}
-      <div className="mt-6 rounded-xl border border-slate-100 bg-slate-50 p-4 sm:p-5 dark:border-slate-800 dark:bg-slate-800/50">
+      <div className="mt-6 rounded-xl border border-slate-100 bg-slate-50 p-4 sm:p-5">
         <div className="mb-4 flex items-center justify-between">
           <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Compression Settings</span>
           <button
             type="button"
             onClick={() => setOptions(DEFAULT_COMPRESS_OPTIONS)}
-            className="inline-flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-indigo-600"
+            className="inline-flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-ink"
           >
             <RotateCcw className="h-3.5 w-3.5" /> Reset
           </button>
@@ -359,10 +359,10 @@ export function ImageCompressorTool() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
           <div className={isPngOutput ? "opacity-50" : ""}>
             <div className="mb-2 flex items-center justify-between">
-              <label htmlFor="quality" className="text-xs font-medium text-slate-700 dark:text-slate-300">
+              <label htmlFor="quality" className="text-xs font-medium text-slate-700">
                 Quality
               </label>
-              <span className="rounded-md bg-indigo-50 px-2 py-0.5 font-mono text-xs font-bold text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
+              <span className="rounded-md bg-slate-200/80 px-2 py-0.5 font-mono text-xs font-bold text-ink">
                 {options.quality}%
               </span>
             </div>
@@ -374,7 +374,7 @@ export function ImageCompressorTool() {
               value={options.quality}
               disabled={isPngOutput}
               onChange={(e) => setOptions((o) => ({ ...o, quality: Number(e.target.value) }))}
-              className="w-full accent-indigo-600 cursor-pointer"
+              className="w-full accent-ink cursor-pointer"
             />
             <div className="mt-1 flex justify-between text-[10px] text-slate-400">
               <span>Smaller file</span>

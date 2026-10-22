@@ -3,7 +3,7 @@ import { ToolLayout } from "@/components/shared/ToolLayout";
 import { ImageResizerTool } from "@/modules/image-resizer/ImageResizerTool";
 
 export const metadata: Metadata = {
-  title: "Image Resizer – Resize Images to Exact Pixels Online Free | Utilby",
+  title: "Image Resizer – Resize Images Online Free | Utilby",
   description:
     "Resize JPG, PNG and WebP images to exact pixels, by percentage, or with Instagram, Facebook, YouTube and LinkedIn presets. Batch resize and download as ZIP. Private — no upload.",
   keywords: [

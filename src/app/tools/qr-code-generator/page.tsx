@@ -3,7 +3,7 @@ import { ToolLayout } from "@/components/shared/ToolLayout";
 import { QrCodeGeneratorTool } from "@/modules/qr-code/QrCodeGeneratorTool";
 
 export const metadata: Metadata = {
-  title: "Free QR Code Generator – URL, Wi-Fi, vCard, PNG & SVG | Utilby",
+  title: "QR Code Generator – Free QR Code Generator for URL, Wi-Fi & Text | Utilby",
   description:
     "Create free QR codes for websites, Wi-Fi, contacts, email, phone and SMS. Custom colors, high-resolution PNG and SVG download. No sign-up, no tracking, generated in your browser.",
   keywords: [

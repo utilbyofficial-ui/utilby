@@ -3,7 +3,7 @@ import { ToolLayout } from "@/components/shared/ToolLayout";
 import { PasswordGeneratorTool } from "@/modules/password/PasswordGeneratorTool";
 
 export const metadata: Metadata = {
-  title: "Secure Random Password Generator Online | Utilby",
+  title: "Password Generator – Secure Random Password Generator Online | Utilby",
   description:
     "Generate strong, cryptographically secure random passwords client-side with customizable length, symbols, and Shannon entropy meter. 100% private.",
   keywords: [

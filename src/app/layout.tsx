@@ -5,6 +5,7 @@ import "./globals.css";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { ADS_ENABLED, ADSENSE_CLIENT } from "@/lib/ads-config";
+import { CF_ANALYTICS_ENABLED, CF_ANALYTICS_TOKEN } from "@/lib/analytics-config";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://utilby.com"),
@@ -82,6 +83,13 @@ export default function RootLayout({
         <Header />
         <main className="flex-1">{children}</main>
         <Footer />
+        {CF_ANALYTICS_ENABLED && (
+          <script
+            defer
+            src="https://static.cloudflareinsights.com/beacon.min.js"
+            data-cf-beacon={`{"token": "${CF_ANALYTICS_TOKEN}"}`}
+          />
+        )}
       </body>
     </html>
   );

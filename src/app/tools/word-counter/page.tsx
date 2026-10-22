@@ -3,7 +3,7 @@ import { ToolLayout } from "@/components/shared/ToolLayout";
 import { WordCounterTool } from "@/modules/word-counter/WordCounterTool";
 
 export const metadata: Metadata = {
-  title: "Free Word Counter & Character Counter Online | Utilby",
+  title: "Word Counter – Count Words, Characters & Reading Time Online | Utilby",
   description:
     "Accurately count words, characters, sentences, paragraphs, reading time, and keyword density in real-time. Free client-side text analyzer.",
   keywords: [

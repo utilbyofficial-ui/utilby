@@ -72,9 +72,9 @@ const FORMATS: { id: OutputFormat; label: string }[] = [
 const PERCENTS = [25, 50, 75, 150, 200];
 
 const selectClass =
-  "h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100";
+  "h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-ink/20 focus:border-ink";
 const numberClass =
-  "h-10 w-full rounded-lg border border-slate-300 bg-white px-3 font-mono text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100";
+  "h-10 w-full rounded-lg border border-slate-300 bg-white px-3 font-mono text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-ink/20 focus:border-ink";
 
 let idCounter = 0;
 const newId = () => `rs-${Date.now()}-${idCounter++}`;
@@ -297,14 +297,14 @@ export function ImageResizerTool() {
           items.length ? "py-6" : "py-12"
         } ${
           dragging
-            ? "border-indigo-500 bg-indigo-50/60 dark:bg-indigo-950/30"
-            : "border-slate-300 bg-slate-50/60 hover:border-indigo-400 hover:bg-indigo-50/30 dark:border-slate-700 dark:bg-slate-800/30"
+            ? "border-ink bg-slate-100"
+            : "border-slate-300 bg-slate-50/60 hover:border-slate-400 hover:bg-slate-100/60"
         }`}
       >
-        <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-white shadow-sm ring-1 ring-slate-200 dark:bg-slate-900 dark:ring-slate-700">
-          <UploadCloud className="h-6 w-6 text-indigo-600" />
+        <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
+          <UploadCloud className="h-6 w-6 text-ink" />
         </div>
-        <p className="text-sm font-semibold text-slate-900 dark:text-white">
+        <p className="text-sm font-semibold text-slate-900">
           {items.length ? "Add more images" : "Drop images here or click to browse"}
         </p>
         <p className="mt-1 text-xs text-slate-500">JPG, PNG, WebP, GIF, BMP • Up to 50 MB each • Batch resize supported</p>
@@ -322,7 +322,7 @@ export function ImageResizerTool() {
       </div>
 
       {notice && (
-        <div className="mt-4 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300">
+        <div className="mt-4 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
           <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
           <span>{notice}</span>
         </div>
@@ -330,19 +330,19 @@ export function ImageResizerTool() {
 
       <div className="mt-6 grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6">
         {/* Settings */}
-        <div className="min-w-0 rounded-xl border border-slate-100 bg-slate-50 p-4 sm:p-5 space-y-5 dark:border-slate-800 dark:bg-slate-800/50">
+        <div className="min-w-0 rounded-xl border border-slate-100 bg-slate-50 p-4 sm:p-5 space-y-5">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Resize Settings</span>
             <button
               type="button"
               onClick={() => setSettings(DEFAULT_RESIZE_SETTINGS)}
-              className="inline-flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-indigo-600"
+              className="inline-flex items-center gap-1 text-xs font-medium text-slate-500 hover:text-ink"
             >
               <RotateCcw className="h-3.5 w-3.5" /> Reset
             </button>
           </div>
 
-          <div role="tablist" aria-label="Resize mode" className="grid grid-cols-3 gap-1 rounded-lg bg-slate-200/60 p-1 dark:bg-slate-900">
+          <div role="tablist" aria-label="Resize mode" className="grid grid-cols-3 gap-1 rounded-lg bg-slate-200/60 p-1">
             {MODES.map(({ id, label, short, icon: Icon }) => (
               <button
                 key={id}
@@ -352,8 +352,8 @@ export function ImageResizerTool() {
                 onClick={() => set({ mode: id })}
                 className={`inline-flex items-center justify-center gap-1.5 rounded-md px-2 py-2 text-xs font-semibold transition-colors ${
                   settings.mode === id
-                    ? "bg-white text-indigo-700 shadow-sm dark:bg-slate-800 dark:text-indigo-300"
-                    : "text-slate-600 hover:text-slate-900 dark:text-slate-400"
+                    ? "bg-white text-ink shadow-sm"
+                    : "text-slate-600 hover:text-ink"
                 }`}
               >
                 <Icon className="h-3.5 w-3.5 shrink-0" />
@@ -386,14 +386,14 @@ export function ImageResizerTool() {
                 aria-pressed={settings.lockAspect}
                 className={`h-10 w-10 inline-flex items-center justify-center rounded-lg border transition-colors ${
                   settings.lockAspect
-                    ? "border-indigo-200 bg-indigo-50 text-indigo-600 dark:border-indigo-900 dark:bg-indigo-950"
-                    : "border-slate-300 bg-white text-slate-400 dark:border-slate-700 dark:bg-slate-900"
+                    ? "border-ink bg-slate-100 text-ink shadow-xs"
+                    : "border-slate-300 bg-white text-slate-400"
                 }`}
               >
                 {settings.lockAspect ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
               </button>
               <div className="space-y-1.5">
-                <label htmlFor="rs-height" className="text-xs font-medium text-slate-700 dark:text-slate-300">
+                <label htmlFor="rs-height" className="text-xs font-medium text-slate-700">
                   Height (px)
                 </label>
                 <input
@@ -416,10 +416,10 @@ export function ImageResizerTool() {
           {settings.mode === "percent" && (
             <div>
               <div className="mb-2 flex items-center justify-between">
-                <label htmlFor="rs-percent" className="text-xs font-medium text-slate-700 dark:text-slate-300">
+                <label htmlFor="rs-percent" className="text-xs font-medium text-slate-700">
                   Scale
                 </label>
-                <span className="rounded-md bg-indigo-50 px-2 py-0.5 font-mono text-xs font-bold text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
+                <span className="rounded-md bg-slate-200/80 px-2 py-0.5 font-mono text-xs font-bold text-ink">
                   {settings.percent}%
                 </span>
               </div>
@@ -431,7 +431,7 @@ export function ImageResizerTool() {
                 step={5}
                 value={settings.percent}
                 onChange={(e) => set({ percent: Number(e.target.value) })}
-                className="w-full accent-indigo-600 cursor-pointer"
+                className="w-full accent-ink cursor-pointer"
               />
               <div className="mt-2 flex flex-wrap gap-2">
                 {PERCENTS.map((p) => (
@@ -441,8 +441,8 @@ export function ImageResizerTool() {
                     onClick={() => set({ percent: p })}
                     className={`rounded-md px-2.5 py-1 text-xs font-semibold ${
                       settings.percent === p
-                        ? "bg-indigo-600 text-white"
-                        : "bg-white text-slate-700 border border-slate-200 hover:bg-slate-100 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-300"
+                        ? "bg-ink text-white"
+                        : "bg-white text-slate-700 border border-slate-200 hover:bg-slate-100"
                     }`}
                   >
                     {p}%
@@ -454,7 +454,7 @@ export function ImageResizerTool() {
 
           {settings.mode === "preset" && (
             <div className="space-y-1.5">
-              <label htmlFor="rs-preset" className="text-xs font-medium text-slate-700 dark:text-slate-300">
+              <label htmlFor="rs-preset" className="text-xs font-medium text-slate-700">
                 Preset
               </label>
               <select
@@ -478,7 +478,7 @@ export function ImageResizerTool() {
 
           {showFit && (
             <div>
-              <span className="text-xs font-medium text-slate-700 dark:text-slate-300 block mb-1.5">
+              <span className="text-xs font-medium text-slate-700 block mb-1.5">
                 If the shape is different
               </span>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -489,8 +489,8 @@ export function ImageResizerTool() {
                     onClick={() => set({ fit: f.id })}
                     className={`rounded-lg px-3 py-2 text-left text-xs transition-colors ${
                       settings.fit === f.id
-                        ? "bg-indigo-600 text-white"
-                        : "bg-white text-slate-700 border border-slate-200 hover:bg-slate-100 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-300"
+                        ? "bg-ink text-white"
+                        : "bg-white text-slate-700 border border-slate-200 hover:bg-slate-100"
                     }`}
                   >
                     <span className="block font-semibold">{f.label}</span>
@@ -500,22 +500,22 @@ export function ImageResizerTool() {
               </div>
               {settings.fit === "contain" && (
                 <div className="mt-3 flex flex-wrap items-center gap-3">
-                  <label className="text-xs font-medium text-slate-700 dark:text-slate-300">Padding color</label>
+                  <label className="text-xs font-medium text-slate-700">Padding color</label>
                   <input
                     type="color"
                     aria-label="Padding color"
                     value={settings.background === "transparent" ? "#ffffff" : settings.background}
                     disabled={settings.background === "transparent"}
                     onChange={(e) => set({ background: e.target.value })}
-                    className="h-8 w-10 cursor-pointer rounded border border-slate-300 bg-white p-0.5 disabled:opacity-40 dark:border-slate-700"
+                    className="h-8 w-10 cursor-pointer rounded border border-slate-300 bg-white p-0.5 disabled:opacity-40"
                   />
                   {!isJpeg && (
-                    <label className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300 cursor-pointer select-none">
+                    <label className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer select-none">
                       <input
                         type="checkbox"
                         checked={settings.background === "transparent"}
                         onChange={(e) => set({ background: e.target.checked ? "transparent" : "#ffffff" })}
-                        className="h-4 w-4 rounded accent-indigo-600"
+                        className="h-4 w-4 rounded accent-ink"
                       />
                       Transparent (PNG / WebP)
                     </label>
@@ -558,18 +558,18 @@ export function ImageResizerTool() {
                 value={settings.quality}
                 disabled={!showQuality}
                 onChange={(e) => set({ quality: Number(e.target.value) })}
-                className="w-full accent-indigo-600 cursor-pointer"
+                className="w-full accent-ink cursor-pointer"
               />
             </div>
           </div>
 
           {settings.mode !== "preset" && (
-            <label className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300 cursor-pointer select-none">
+            <label className="flex items-center gap-2 text-xs text-slate-700 cursor-pointer select-none">
               <input
                 type="checkbox"
                 checked={settings.noEnlarge}
                 onChange={(e) => set({ noEnlarge: e.target.checked })}
-                className="h-4 w-4 rounded accent-indigo-600"
+                className="h-4 w-4 rounded accent-ink"
               />
               Don&apos;t enlarge images that are already smaller
             </label>
@@ -578,7 +578,7 @@ export function ImageResizerTool() {
 
         {/* Preview */}
         <div className="lg:sticky lg:top-24 self-start space-y-3">
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950">
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
             <div className="flex aspect-square w-full items-center justify-center overflow-hidden rounded-xl bg-[repeating-conic-gradient(#e2e8f0_0%_25%,#fff_0%_50%)] bg-[length:16px_16px]">
               {selected?.resultUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -600,7 +600,7 @@ export function ImageResizerTool() {
                     {selected.srcW && selected.srcH ? `${selected.srcW} × ${selected.srcH}` : "…"} • {formatBytes(selected.file.size)}
                   </span>
                 </div>
-                <div className="flex justify-between font-semibold text-slate-900 dark:text-white">
+                <div className="flex justify-between font-semibold text-slate-900">
                   <span>New size</span>
                   <span className="font-mono">
                     {previewPlan ? `${previewPlan.width} × ${previewPlan.height}` : "…"}
@@ -626,7 +626,7 @@ export function ImageResizerTool() {
       {items.length > 0 && (
         <div className="mt-6">
           <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <span className="text-sm text-slate-600 dark:text-slate-400">
+            <span className="text-sm text-slate-600">
               {doneItems.length} of {items.length} image{items.length > 1 ? "s" : ""} ready
             </span>
             <div className="flex gap-2">
@@ -638,11 +638,11 @@ export function ImageResizerTool() {
               </Button>
             </div>
           </div>
-          <ul className="divide-y divide-slate-100 rounded-xl border border-slate-200 dark:divide-slate-800 dark:border-slate-800">
+          <ul className="divide-y divide-slate-100 rounded-xl border border-slate-200">
             {items.map((it) => (
               <li
                 key={it.id}
-                className={`flex items-center gap-3 p-3 ${selected?.id === it.id ? "bg-indigo-50/50 dark:bg-indigo-950/20" : ""}`}
+                className={`flex items-center gap-3 p-3 transition-colors ${selected?.id === it.id ? "bg-slate-100/80" : ""}`}
               >
                 <button
                   type="button"

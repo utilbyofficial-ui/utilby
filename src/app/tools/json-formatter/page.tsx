@@ -3,7 +3,7 @@ import { ToolLayout } from "@/components/shared/ToolLayout";
 import { JsonFormatterTool } from "@/modules/json-formatter/JsonFormatterTool";
 
 export const metadata: Metadata = {
-  title: "Online JSON Formatter, Beautifier & Validator | Utilby",
+  title: "JSON Formatter – Format, Validate & Prettify JSON Online | Utilby",
   description:
     "Clean, format, indent, minify, and validate JSON data online with pinpoint syntax error detection. 100% private client-side JSON tool.",
   keywords: [

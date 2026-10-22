@@ -1,118 +1,96 @@
 import type { Metadata } from "next";
 import { Breadcrumbs } from "@/components/layout/Breadcrumbs";
-import { Mail, MessageSquare, Clock, Shield } from "lucide-react";
+import { Mail, Clock, Shield, MessageSquare, ArrowRight } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: "Contact & Support | Utilby Network",
+  title: "Contact & Support – Get in Touch | Utilby",
   description:
-    "Get in touch with the Utilby team for support, feature suggestions, bug reports, and business inquiries.",
+    "Contact the Utilby engineering team for support, feature suggestions, bug reports, and business inquiries.",
 };
 
 export default function ContactPage() {
   return (
-    <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6 lg:px-8">
-      <Breadcrumbs items={[{ label: "Contact Us" }]} />
+    <div className="mx-auto max-w-[1000px] px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
+      <Breadcrumbs items={[{ label: "Contact" }]} />
 
-      <div className="rounded-3xl border border-slate-200/80 bg-white p-6 sm:p-10 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <h1 className="text-3xl font-black text-slate-900 dark:text-white">
-          Contact & Support
+      {/* Hero Header */}
+      <div className="mt-6">
+        <span className="inline-flex items-center gap-2 rounded-full bg-sun-soft px-3.5 py-1.5 text-xs font-semibold text-amber-900">
+          <span className="h-2 w-2 rounded-full bg-sun" />
+          Support & Feedback
+        </span>
+        <h1 className="mt-4 font-display text-3xl font-extrabold tracking-tight text-ink sm:text-5xl">
+          Get in touch with the team
         </h1>
-        <p className="mt-2 text-sm text-slate-500 max-w-xl">
-          We welcome your feedback, bug reports, partnership inquiries, and suggestions for new utility tools.
+        <p className="mt-3 max-w-2xl text-base leading-relaxed text-slate-600 sm:text-lg">
+          Have an idea for a new utility tool? Found an edge-case bug? We read every message and respond promptly.
         </p>
+      </div>
 
-        <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="rounded-2xl border border-slate-200 bg-slate-50/50 p-6 dark:border-slate-800 dark:bg-slate-800/40">
-            <Mail className="h-6 w-6 text-indigo-600 dark:text-indigo-400 mb-3" />
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white">Email Us</h3>
-            <p className="mt-1 text-xs text-slate-500">For general support & business questions:</p>
-            <a
-              href="mailto:support@utilby.com"
-              className="mt-3 block text-xs font-semibold text-indigo-600 hover:underline dark:text-indigo-400"
-            >
-              support@utilby.com
-            </a>
+      {/* Contact Cards */}
+      <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="rounded-3xl border border-slate-200/80 bg-white p-6 sm:p-7 shadow-soft">
+          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-dev-soft">
+            <Mail className="h-6 w-6 text-violet-700" />
           </div>
-
-          <div className="rounded-2xl border border-slate-200 bg-slate-50/50 p-6 dark:border-slate-800 dark:bg-slate-800/40">
-            <Clock className="h-6 w-6 text-emerald-600 dark:text-emerald-400 mb-3" />
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white">Response Time</h3>
-            <p className="mt-1 text-xs text-slate-500">
-              Our engineering team responds to all inquiries within 24 to 48 business hours.
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-slate-200 bg-slate-50/50 p-6 dark:border-slate-800 dark:bg-slate-800/40">
-            <Shield className="h-6 w-6 text-amber-600 dark:text-amber-400 mb-3" />
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white">Bug Reports</h3>
-            <p className="mt-1 text-xs text-slate-500">
-              Found a bug or an edge-case calculation error? Please include steps to reproduce.
-            </p>
-          </div>
+          <h2 className="mt-4 font-display text-lg font-bold text-ink sm:text-xl">
+            Email Support
+          </h2>
+          <p className="mt-2 text-sm leading-relaxed text-slate-600">
+            For general support, feedback, and partnership questions:
+          </p>
+          <a
+            href="mailto:support@utilby.com"
+            className="mt-4 inline-flex items-center gap-1.5 font-display text-sm font-bold text-ink underline-offset-4 hover:underline"
+          >
+            support@utilby.com
+            <ArrowRight className="h-3.5 w-3.5" />
+          </a>
         </div>
 
-        {/* Contact Form Placeholder */}
-        <div className="mt-10 rounded-2xl border border-slate-200/80 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
-          <h2 className="text-lg font-bold text-slate-900 dark:text-white mb-4">
-            Send Us a Direct Message
+        <div className="rounded-3xl border border-slate-200/80 bg-white p-6 sm:p-7 shadow-soft">
+          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-sec-soft">
+            <Clock className="h-6 w-6 text-emerald-700" />
+          </div>
+          <h2 className="mt-4 font-display text-lg font-bold text-ink sm:text-xl">
+            Response Time
           </h2>
-          <form className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="text-xs font-medium text-slate-700 dark:text-slate-300 block mb-1">
-                  Your Name
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. Alex Smith"
-                  required
-                  className="w-full h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-white"
-                />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-slate-700 dark:text-slate-300 block mb-1">
-                  Email Address
-                </label>
-                <input
-                  type="email"
-                  placeholder="e.g. alex@example.com"
-                  required
-                  className="w-full h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-white"
-                />
-              </div>
-            </div>
+          <p className="mt-2 text-sm leading-relaxed text-slate-600">
+            Our engineering team typically reviews inquiries and replies within <strong>24 to 48 hours</strong>.
+          </p>
+        </div>
 
-            <div>
-              <label className="text-xs font-medium text-slate-700 dark:text-slate-300 block mb-1">
-                Subject
-              </label>
-              <input
-                type="text"
-                placeholder="e.g. Feature request for Word Counter"
-                required
-                className="w-full h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-white"
-              />
-            </div>
+        <div className="rounded-3xl border border-slate-200/80 bg-white p-6 sm:p-7 shadow-soft">
+          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-sun-soft">
+            <Shield className="h-6 w-6 text-amber-700" />
+          </div>
+          <h2 className="mt-4 font-display text-lg font-bold text-ink sm:text-xl">
+            Bug Reports
+          </h2>
+          <p className="mt-2 text-sm leading-relaxed text-slate-600">
+            Encountered an issue? Please include your browser version, OS, and sample steps to reproduce.
+          </p>
+        </div>
+      </div>
 
-            <div>
-              <label className="text-xs font-medium text-slate-700 dark:text-slate-300 block mb-1">
-                Message
-              </label>
-              <textarea
-                rows={4}
-                placeholder="Write your message here..."
-                required
-                className="w-full rounded-lg border border-slate-300 bg-white p-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-white"
-              />
-            </div>
-
-            <button
-              type="button"
-              className="inline-flex items-center justify-center rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 transition-colors"
-            >
-              Send Message
-            </button>
-          </form>
+      {/* Direct Contact Box */}
+      <div className="mt-10 rounded-3xl border border-slate-200/80 bg-white p-7 sm:p-10 shadow-soft">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
+          <div>
+            <h2 className="font-display text-2xl font-bold tracking-tight text-ink">
+              Send an email directly
+            </h2>
+            <p className="mt-2 text-sm text-slate-600 max-w-xl">
+              Click the button below to launch your email client with our official support address pre-filled.
+            </p>
+          </div>
+          <a
+            href="mailto:support@utilby.com?subject=Utilby%20Feedback%20or%20Support"
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-ink px-6 py-3.5 text-sm font-bold text-white hover:bg-slate-800 transition-colors shrink-0"
+          >
+            <Mail className="h-4 w-4" />
+            Email support@utilby.com
+          </a>
         </div>
       </div>
     </div>
