@@ -22,7 +22,7 @@ export function AdSlot({ slotId = "placeholder-slot", format = "horizontal-banne
       </span>
       <div
         className={cn(
-          "flex items-center justify-center rounded-lg border border-dashed border-slate-200 bg-slate-50/50 p-4 text-center dark:border-slate-800 dark:bg-slate-900/40",
+          "flex items-center justify-center rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-4 text-center",
           formatStyles[format]
         )}
       >

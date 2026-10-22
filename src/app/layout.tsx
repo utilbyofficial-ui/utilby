@@ -1,4 +1,6 @@
 import type { Metadata, Viewport } from "next";
+import "@fontsource-variable/dm-sans";
+import "@fontsource-variable/bricolage-grotesque";
 import "./globals.css";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
@@ -58,7 +60,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#4f46e5",
+  themeColor: "#16141F",
   width: "device-width",
   initialScale: 1,
 };
@@ -70,7 +72,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="scroll-smooth">
-      <body className="min-h-screen flex flex-col font-sans bg-slate-50/70 text-slate-900 antialiased selection:bg-indigo-100 selection:text-indigo-900">
+      <body className="min-h-screen flex flex-col font-sans bg-white text-ink antialiased selection:bg-sun selection:text-ink">
         <Header />
         <main className="flex-1">{children}</main>
         <Footer />

@@ -2,235 +2,239 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Wrench, Search, Menu, X, ChevronRight, Sparkles } from "lucide-react";
+import { usePathname } from "next/navigation";
+import { createPortal } from "react-dom";
+import { Search, Menu, X, ArrowRight } from "lucide-react";
 import { TOOLS, CATEGORIES } from "@/lib/tools-registry";
+import { Logo, ToolGlyph } from "@/components/shared/ToolGlyph";
+import { cn } from "@/lib/utils";
+import { POPULAR_TOOL_IDS } from "@/lib/category-style";
+
+const NAV = [
+  { label: "All tools", href: "/#all-tools" },
+  { label: "PDF", href: "/#pdf" },
+  { label: "Images", href: "/#image" },
+  { label: "Text", href: "/#text" },
+  { label: "Developer", href: "/#developer" },
+];
+
+export function searchTools(query: string) {
+  const q = query.trim().toLowerCase();
+  if (!q) return [];
+  return TOOLS.filter(
+    (t) =>
+      t.name.toLowerCase().includes(q) ||
+      t.shortDescription.toLowerCase().includes(q) ||
+      t.keywords.some((k) => k.toLowerCase().includes(q))
+  ).sort((a, b) => Number(b.isReady) - Number(a.isReady));
+}
 
 export function Header() {
-  const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
+  const pathname = usePathname();
+  const [menuOpen, setMenuOpen] = React.useState(false);
   const [searchOpen, setSearchOpen] = React.useState(false);
-  const [searchQuery, setSearchQuery] = React.useState("");
+  const [query, setQuery] = React.useState("");
+  const [active, setActive] = React.useState(0);
+  const [scrolled, setScrolled] = React.useState(false);
 
-  // Keyboard shortcut (⌘K or /) for instant search
   React.useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+    const onScroll = () => setScrolled(window.scrollY > 4);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  React.useEffect(() => {
+    setMenuOpen(false);
+    setSearchOpen(false);
+  }, [pathname]);
+
+  // ⌘K / Ctrl+K or "/" opens search; Esc closes.
+  React.useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const tag = (document.activeElement as HTMLElement | null)?.tagName;
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
-        setSearchOpen((prev) => !prev);
-      } else if (e.key === "/" && !searchOpen && document.activeElement?.tagName !== "INPUT" && document.activeElement?.tagName !== "TEXTAREA") {
+        setSearchOpen((v) => !v);
+      } else if (e.key === "/" && !searchOpen && tag !== "INPUT" && tag !== "TEXTAREA") {
         e.preventDefault();
         setSearchOpen(true);
-      } else if (e.key === "Escape" && searchOpen) {
+      } else if (e.key === "Escape") {
         setSearchOpen(false);
       }
     };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   }, [searchOpen]);
 
-  const filteredTools = searchQuery.trim()
-    ? TOOLS.filter(
-        (t) =>
-          t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          t.shortDescription.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          t.keywords.some((k) => k.toLowerCase().includes(searchQuery.toLowerCase()))
-      )
-    : [];
+  React.useEffect(() => {
+    document.body.style.overflow = searchOpen ? "hidden" : "";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [searchOpen]);
+
+  const popular = POPULAR_TOOL_IDS.map((id) => TOOLS.find((t) => t.id === id)!).filter(Boolean);
+  const results = query.trim() ? searchTools(query) : popular;
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => setMounted(true), []);
+  React.useEffect(() => setActive(0), [query]);
+
+  const closeSearch = () => {
+    setSearchOpen(false);
+    setQuery("");
+  };
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-slate-200/80 bg-white/95 backdrop-blur-md">
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-        {/* Brand Logo & Tagline */}
-        <Link href="/" className="flex items-center gap-2.5 group">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-sm shadow-indigo-600/20 group-hover:bg-indigo-700 transition-colors">
-            <Wrench className="h-4 w-4" />
-          </div>
-          <div className="flex flex-col">
-            <div className="flex items-center gap-1.5">
-              <span className="text-lg font-black tracking-tight text-slate-900 group-hover:text-indigo-600 transition-colors">
-                Util<span className="text-indigo-600">by</span>
-              </span>
-              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
-                Online Tools
-              </span>
-            </div>
-          </div>
+    <header
+      className={cn(
+        "sticky top-0 z-40 w-full bg-white/90 backdrop-blur-md transition-shadow",
+        scrolled ? "shadow-[0_1px_0_0_#ECEAF3]" : ""
+      )}
+    >
+      <div className="mx-auto flex h-16 max-w-[1240px] items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
+        <Link href="/" aria-label="Utilby home" className="shrink-0">
+          <Logo />
         </Link>
 
-        {/* Desktop Navigation Links */}
-        <nav className="hidden md:flex md:items-center md:gap-7 text-sm font-medium text-slate-600">
-          <Link href="/#popular-tools" className="hover:text-indigo-600 transition-colors">
-            Popular Tools
-          </Link>
-          <Link href="/#categories" className="hover:text-indigo-600 transition-colors">
-            Categories
-          </Link>
-          <Link href="/#all-tools" className="hover:text-indigo-600 transition-colors">
-            All Tools
-          </Link>
-          <Link href="/about" className="hover:text-indigo-600 transition-colors">
-            About
-          </Link>
+        <nav aria-label="Main" className="hidden items-center gap-1 text-[15px] font-semibold text-slate-700 md:flex">
+          {NAV.map((n) => (
+            <Link key={n.href} href={n.href} className="rounded-full px-3.5 py-2 transition-colors hover:bg-slate-100 hover:text-ink">
+              {n.label}
+            </Link>
+          ))}
         </nav>
 
-        {/* Search & Actions */}
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2">
           <button
+            type="button"
             onClick={() => setSearchOpen(true)}
-            className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50/80 px-3.5 py-1.5 text-xs text-slate-500 hover:border-slate-300 hover:bg-white hover:text-slate-900 transition-all shadow-sm"
+            className="flex h-10 items-center gap-2.5 rounded-full bg-slate-100 pl-3.5 pr-2 text-sm text-slate-600 transition-colors hover:bg-slate-200 hover:text-ink"
             aria-label="Search tools"
           >
-            <Search className="h-3.5 w-3.5 text-slate-400" />
-            <span className="hidden sm:inline">Search tools...</span>
-            <kbd className="hidden sm:inline rounded bg-white px-1.5 py-0.5 text-[10px] font-mono text-slate-400 border border-slate-200">
-              ⌘K
-            </kbd>
+            <Search className="h-4 w-4" />
+            <span className="hidden sm:inline">Search tools</span>
+            <kbd className="hidden rounded-full bg-white px-2 py-0.5 font-sans text-[11px] font-semibold text-slate-500 sm:inline">⌘K</kbd>
           </button>
-
-          {/* Mobile Menu Toggle */}
           <button
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="md:hidden flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-600 hover:text-slate-900"
-            aria-label="Toggle Navigation Menu"
+            type="button"
+            onClick={() => setMenuOpen((v) => !v)}
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-ink md:hidden"
+            aria-label={menuOpen ? "Close menu" : "Open menu"}
+            aria-expanded={menuOpen}
           >
-            {mobileMenuOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+            {menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
         </div>
       </div>
 
-      {/* Mobile Drawer */}
-      {mobileMenuOpen && (
-        <div className="border-b border-slate-200 bg-white px-5 py-4 md:hidden shadow-lg animate-in slide-in-from-top-2 duration-150">
-          <nav className="flex flex-col space-y-3">
-            <Link
-              href="/#popular-tools"
-              onClick={() => setMobileMenuOpen(false)}
-              className="text-sm font-semibold text-slate-900 hover:text-indigo-600 py-1"
-            >
-              Popular Tools
-            </Link>
-            <Link
-              href="/#categories"
-              onClick={() => setMobileMenuOpen(false)}
-              className="text-sm font-semibold text-slate-900 hover:text-indigo-600 py-1"
-            >
-              Categories Directory
-            </Link>
-            <Link
-              href="/#all-tools"
-              onClick={() => setMobileMenuOpen(false)}
-              className="text-sm font-semibold text-slate-900 hover:text-indigo-600 py-1"
-            >
-              All Utilities
-            </Link>
-            <Link
-              href="/about"
-              onClick={() => setMobileMenuOpen(false)}
-              className="text-sm font-semibold text-slate-900 hover:text-indigo-600 py-1"
-            >
-              About Utilby
-            </Link>
-
-            <div className="border-t border-slate-100 pt-3">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-2">
-                Quick Access
-              </span>
-              <div className="grid grid-cols-2 gap-2">
-                {TOOLS.filter((t) => t.isReady).map((tool) => (
-                  <Link
-                    key={tool.id}
-                    href={`/tools/${tool.slug}`}
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="rounded-lg bg-slate-50 p-2 text-xs font-medium text-slate-700 hover:bg-indigo-50 hover:text-indigo-700"
-                  >
-                    {tool.name}
-                  </Link>
-                ))}
-              </div>
-            </div>
+      {/* Mobile menu */}
+      {menuOpen && (
+        <div className="animate-fade-up border-t border-slate-200 bg-white px-4 pb-6 pt-3 shadow-lift md:hidden">
+          <nav aria-label="Mobile" className="flex flex-wrap gap-2">
+            {NAV.map((n) => (
+              <Link key={n.href} href={n.href} className="rounded-full bg-slate-100 px-4 py-2.5 text-sm font-semibold text-ink">
+                {n.label}
+              </Link>
+            ))}
           </nav>
-        </div>
-      )}
-
-      {/* Search Modal */}
-      {searchOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-start justify-center bg-slate-900/40 p-4 pt-16 sm:pt-24 backdrop-blur-sm animate-in fade-in duration-150"
-          onClick={() => setSearchOpen(false)}
-        >
-          <div
-            className="w-full max-w-xl rounded-2xl border border-slate-200 bg-white shadow-2xl overflow-hidden"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center border-b border-slate-200 px-4 py-3 bg-slate-50/50">
-              <Search className="h-4 w-4 text-slate-400 shrink-0 mr-3" />
-              <input
-                type="text"
-                autoFocus
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="What do you want to do? (e.g. count words, format json)..."
-                className="w-full bg-transparent text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none"
-              />
-              <button
-                onClick={() => {
-                  setSearchOpen(false);
-                  setSearchQuery("");
-                }}
-                className="rounded-md p-1 text-slate-400 hover:text-slate-700 ml-2"
-                aria-label="Close search"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <div className="max-h-80 overflow-y-auto p-2">
-              {searchQuery.trim() === "" ? (
-                <div className="p-6 text-center text-xs text-slate-500">
-                  <p className="font-medium text-slate-700 mb-1">Search any online tool</p>
-                  <p>Type keywords to jump directly to any utility.</p>
-                </div>
-              ) : filteredTools.length === 0 ? (
-                <div className="p-6 text-center text-xs text-slate-500">
-                  No tools found matching &quot;{searchQuery}&quot;.
-                </div>
-              ) : (
-                <div className="space-y-1">
-                  {filteredTools.map((tool) => (
-                    <Link
-                      key={tool.id}
-                      href={tool.isReady ? `/tools/${tool.slug}` : "#"}
-                      onClick={() => {
-                        setSearchOpen(false);
-                        setSearchQuery("");
-                      }}
-                      className="flex items-center justify-between rounded-xl p-3 hover:bg-slate-50 transition-colors"
-                    >
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-semibold text-slate-900">
-                            {tool.name}
-                          </span>
-                          {tool.isReady ? (
-                            <span className="rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-semibold px-2 py-0.5 border border-emerald-100">
-                              Active
-                            </span>
-                          ) : (
-                            <span className="rounded-full bg-slate-100 text-slate-500 text-[10px] font-semibold px-2 py-0.5">
-                              Coming Soon
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-xs text-slate-500 mt-0.5">{tool.shortDescription}</p>
-                      </div>
-                      <ChevronRight className="h-4 w-4 text-slate-400 shrink-0 ml-2" />
-                    </Link>
-                  ))}
-                </div>
-              )}
-            </div>
+          <p className="mb-2 mt-5 text-xs font-semibold uppercase tracking-wider text-slate-500">Popular</p>
+          <div className="grid grid-cols-1 gap-1">
+            {popular.map((t) => (
+              <Link key={t.id} href={`/tools/${t.slug}`} className="flex items-center gap-3 rounded-2xl p-2 hover:bg-slate-50">
+                <ToolGlyph tool={t} size="sm" />
+                <span className="text-sm font-semibold text-ink">{t.name}</span>
+              </Link>
+            ))}
           </div>
         </div>
       )}
+
+      {/* Search dialog (portaled to <body> so the header's backdrop-blur doesn't trap it) */}
+      {searchOpen && mounted && createPortal(
+        <div
+          className="fixed inset-0 z-50 flex items-start justify-center bg-ink/40 p-4 pt-[12vh] backdrop-blur-sm"
+          onClick={closeSearch}
+          role="presentation"
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Search tools"
+            className="animate-pop-in w-full max-w-xl overflow-hidden rounded-3xl bg-white shadow-lift"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3 border-b border-slate-200 px-5 py-4">
+              <Search className="h-5 w-5 shrink-0 text-slate-500" />
+              <label htmlFor="global-search" className="sr-only">
+                Search tools
+              </label>
+              <input
+                id="global-search"
+                type="search"
+                autoFocus
+                autoComplete="off"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "ArrowDown") {
+                    e.preventDefault();
+                    setActive((a) => Math.min(results.length - 1, a + 1));
+                  } else if (e.key === "ArrowUp") {
+                    e.preventDefault();
+                    setActive((a) => Math.max(0, a - 1));
+                  } else if (e.key === "Enter" && results[active]?.isReady) {
+                    window.location.href = `/tools/${results[active].slug}`;
+                  }
+                }}
+                placeholder="What do you want to do? e.g. merge pdf"
+                className="w-full bg-transparent text-base text-ink placeholder:text-slate-400 focus:outline-none"
+              />
+              <button type="button" onClick={closeSearch} className="rounded-full p-1.5 text-slate-500 hover:bg-slate-100 hover:text-ink" aria-label="Close search">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="max-h-[60vh] overflow-y-auto p-2">
+              {!query.trim() && <p className="px-3 pb-1 pt-2 text-xs font-semibold uppercase tracking-wider text-slate-500">Popular tools</p>}
+              {results.length === 0 ? (
+                <p className="p-8 text-center text-sm text-slate-600">No tools match “{query}”. Try “pdf”, “image” or “json”.</p>
+              ) : (
+                <ul>
+                  {results.map((t, i) => (
+                    <li key={t.id}>
+                      <Link
+                        href={t.isReady ? `/tools/${t.slug}` : "#"}
+                        aria-disabled={!t.isReady}
+                        onClick={closeSearch}
+                        onMouseEnter={() => setActive(i)}
+                        className={cn(
+                          "flex items-center gap-3.5 rounded-2xl p-2.5 transition-colors",
+                          i === active ? "bg-slate-100" : "",
+                          !t.isReady && "opacity-60"
+                        )}
+                      >
+                        <ToolGlyph tool={t} size="sm" />
+                        <span className="min-w-0 flex-1">
+                          <span className="flex items-center gap-2 text-sm font-semibold text-ink">
+                            {t.name}
+                            {!t.isReady && <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">Soon</span>}
+                          </span>
+                          <span className="block truncate text-xs text-slate-600">{t.shortDescription}</span>
+                        </span>
+                        {i === active && t.isReady && <ArrowRight className="h-4 w-4 shrink-0 text-slate-500" />}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            <div className="flex items-center justify-between border-t border-slate-200 px-5 py-3 text-[11px] text-slate-500">
+              <span>{CATEGORIES.length} categories · {TOOLS.filter((t) => t.isReady).length} tools</span>
+              <span>↑↓ to move · Enter to open · Esc to close</span>
+            </div>
+          </div>
+        </div>
+      , document.body)}
     </header>
   );
 }

@@ -1,12 +1,14 @@
 import * as React from "react";
 import Link from "next/link";
 import { Breadcrumbs, BreadcrumbItem } from "@/components/layout/Breadcrumbs";
-import { Badge } from "@/components/ui/Badge";
 import { AdSlot } from "@/components/ads/AdSlot";
 import { FaqAccordion, FaqItem } from "@/components/shared/FaqAccordion";
 import { SchemaScript } from "@/components/seo/SchemaScript";
-import { Shield, Sparkles, ArrowRight } from "lucide-react";
+import { ToolGlyph } from "@/components/shared/ToolGlyph";
+import { ArrowRight, ShieldCheck } from "lucide-react";
 import { TOOLS } from "@/lib/tools-registry";
+import { CATEGORY_STYLES } from "@/lib/category-style";
+import { cn } from "@/lib/utils";
 
 interface ToolLayoutProps {
   toolId: string;
@@ -31,15 +33,19 @@ export function ToolLayout({
   technicalDetails,
   faqs,
 }: ToolLayoutProps) {
-  const breadcrumbs: BreadcrumbItem[] = [
-    { label: category, href: `/#${categorySlug}` },
-    { label: title },
-  ];
+  const breadcrumbs: BreadcrumbItem[] = [{ label: category, href: `/#${categorySlug}` }, { label: title }];
+  const tool = TOOLS.find((t) => t.id === toolId);
+  const catId = tool?.category ?? (categorySlug as keyof typeof CATEGORY_STYLES);
+  const style = CATEGORY_STYLES[catId] ?? CATEGORY_STYLES.developer;
 
-  const relatedTools = TOOLS.filter((t) => t.id !== toolId && t.isReady).slice(0, 3);
+  // Same-category tools first, then other popular ones.
+  const relatedTools = [
+    ...TOOLS.filter((t) => t.id !== toolId && t.isReady && t.category === catId),
+    ...TOOLS.filter((t) => t.id !== toolId && t.isReady && t.category !== catId && t.featured),
+  ].slice(0, 5);
 
   return (
-    <div className="min-h-screen bg-slate-50/50 pb-20 dark:bg-slate-950">
+    <div className="pb-8">
       <SchemaScript
         toolName={title}
         description={subtitle}
@@ -53,120 +59,97 @@ export function ToolLayout({
         ]}
       />
 
-      <div className="mx-auto max-w-5xl px-4 pt-6 sm:px-6 lg:px-8">
-        {/* Navigation Breadcrumbs */}
-        <Breadcrumbs items={breadcrumbs} />
-
-        {/* Tool Header Section */}
-        <div className="mb-8 text-center sm:text-left">
-          <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 mb-3">
-            <Badge variant="default">{category}</Badge>
-            <Badge variant="success" className="gap-1">
-              <Shield className="h-3 w-3" />
-              100% Client-Side • Zero Data Storage
-            </Badge>
+      {/* Tool hero on the category tint */}
+      <div className={cn("border-b border-slate-200/60", style.soft)}>
+        <div className="mx-auto max-w-[1240px] px-4 pb-10 pt-6 sm:px-6 lg:px-8">
+          <Breadcrumbs items={breadcrumbs} />
+          <div className="mt-6 flex flex-col gap-5 sm:flex-row sm:items-start">
+            {tool && <ToolGlyph tool={tool} size="xl" />}
+            <div className="min-w-0">
+              <h1 className="font-display text-4xl font-extrabold tracking-[-0.03em] text-ink sm:text-5xl">{title}</h1>
+              <p className="mt-3 max-w-3xl text-base leading-relaxed text-slate-700 sm:text-lg">{subtitle}</p>
+              <p className="mt-4 inline-flex items-center gap-2 rounded-full bg-white px-3.5 py-1.5 text-xs font-semibold text-ink shadow-soft">
+                <ShieldCheck className="h-4 w-4 text-sec" />
+                Runs in your browser · Files never uploaded
+              </p>
+            </div>
           </div>
-          <h1 className="text-3xl font-black tracking-tight text-slate-900 sm:text-4xl dark:text-white">
-            {title}
-          </h1>
-          <p className="mt-2 text-sm text-slate-600 sm:text-base dark:text-slate-400 max-w-3xl">
-            {subtitle}
-          </p>
         </div>
+      </div>
 
-        {/* Interactive Tool Sandbox (Above the Fold) */}
-        <div className="relative mb-8">{children}</div>
+      <div className="mx-auto max-w-[1240px] px-4 sm:px-6 lg:px-8">
+        {/* Interactive tool */}
+        <div className="relative -mt-0 pt-8">{children}</div>
 
-        {/* CLS-safe non-intrusive AdSlot */}
         <AdSlot slotId={`tool-slot-${toolId}`} format="horizontal-banner" />
 
-        {/* Comprehensive SEO Content Section (Helpful Content) */}
-        <div className="grid grid-cols-1 gap-12 lg:grid-cols-3">
-          {/* Main Content Area */}
-          <div className="lg:col-span-2 space-y-10">
-            {/* How-To Guide */}
-            <section className="rounded-2xl border border-slate-200/80 bg-white p-6 dark:border-slate-800 dark:bg-slate-900 shadow-sm">
-              <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-4">
-                How to Use the {title}
+        {/* Helpful content */}
+        <div className="mt-4 grid grid-cols-1 gap-10 lg:grid-cols-[minmax(0,1fr)_340px]">
+          <div className="min-w-0 space-y-14">
+            <section aria-labelledby="how-to">
+              <h2 id="how-to" className="font-display text-3xl font-bold tracking-tight text-ink">
+                How to use {title}
               </h2>
-              <div className="space-y-4">
+              <ol className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
                 {howToSteps.map((step, idx) => (
-                  <div key={idx} className="flex items-start gap-3.5">
-                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-xs font-bold text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
+                  <li key={idx} className="rounded-3xl border border-slate-200 bg-white p-6 shadow-soft">
+                    <span className={cn("flex h-9 w-9 items-center justify-center rounded-xl font-display text-base font-extrabold text-ink", style.solid)}>
                       {idx + 1}
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                        {step.title}
-                      </h3>
-                      <p className="mt-0.5 text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                        {step.description}
-                      </p>
-                    </div>
-                  </div>
+                    </span>
+                    <h3 className="mt-4 text-[17px] font-bold text-ink">{step.title}</h3>
+                    <p className="mt-1.5 text-[15px] leading-relaxed text-slate-600">{step.description}</p>
+                  </li>
                 ))}
-              </div>
+              </ol>
             </section>
 
-            {/* Technical Explanation / Formulas */}
             {technicalDetails && (
-              <section className="rounded-2xl border border-slate-200/80 bg-white p-6 dark:border-slate-800 dark:bg-slate-900 shadow-sm">
-                <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-3">
+              <section aria-labelledby="details" className="rounded-[28px] bg-slate-100 p-7 sm:p-9">
+                <h2 id="details" className="font-display text-2xl font-bold tracking-tight text-ink sm:text-3xl">
                   {technicalDetails.title}
                 </h2>
-                <div className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed space-y-3">
+                <div className="mt-4 space-y-4 text-[15px] leading-relaxed text-slate-700 [&_code]:rounded-md [&_code]:bg-white [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:text-[13px] [&_strong]:text-ink">
                   {technicalDetails.content}
                 </div>
               </section>
             )}
 
-            {/* Frequently Asked Questions */}
-            <section>
-              <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-4">
-                Frequently Asked Questions
+            <section aria-labelledby="faq">
+              <h2 id="faq" className="font-display text-3xl font-bold tracking-tight text-ink">
+                Questions &amp; answers
               </h2>
-              <FaqAccordion items={faqs} />
+              <FaqAccordion items={faqs} className="mt-6" />
             </section>
           </div>
 
-          {/* Sidebar Area: Related Tools & Privacy Guarantee */}
-          <div className="space-y-6">
-            <div className="rounded-2xl border border-slate-200/80 bg-white p-5 dark:border-slate-800 dark:bg-slate-900 shadow-sm">
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-3">
-                Related Free Utilities
-              </h3>
-              <div className="space-y-3">
+          <aside className="space-y-4 lg:pt-[72px]">
+            <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-soft">
+              <h2 className="px-1 text-sm font-bold text-ink">More tools you&apos;ll like</h2>
+              <ul className="mt-3 space-y-1">
                 {relatedTools.map((rel) => (
-                  <Link
-                    key={rel.id}
-                    href={`/tools/${rel.slug}`}
-                    className="group block rounded-xl border border-slate-100 p-3 transition-colors hover:border-indigo-200 hover:bg-slate-50 dark:border-slate-800 dark:hover:border-slate-700 dark:hover:bg-slate-800/60"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold text-slate-900 group-hover:text-indigo-600 dark:text-slate-200">
-                        {rel.name}
+                  <li key={rel.id}>
+                    <Link href={`/tools/${rel.slug}`} className="group flex items-center gap-3 rounded-2xl p-2 transition-colors hover:bg-slate-50">
+                      <ToolGlyph tool={rel} size="sm" />
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-sm font-semibold text-ink">{rel.name}</span>
+                        <span className="block truncate text-xs text-slate-600">{rel.shortDescription}</span>
                       </span>
-                      <ArrowRight className="h-3.5 w-3.5 text-slate-400 group-hover:text-indigo-600 transition-transform group-hover:translate-x-0.5" />
-                    </div>
-                    <p className="mt-1 text-[11px] text-slate-500 line-clamp-2">
-                      {rel.shortDescription}
-                    </p>
-                  </Link>
+                      <ArrowRight className="h-4 w-4 shrink-0 text-slate-400 transition-transform group-hover:translate-x-0.5 group-hover:text-ink" />
+                    </Link>
+                  </li>
                 ))}
-              </div>
+              </ul>
             </div>
-
-            {/* Privacy Highlight Box */}
-            <div className="rounded-2xl border border-emerald-200/70 bg-emerald-50/40 p-5 dark:border-emerald-900/40 dark:bg-emerald-950/20">
-              <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-300 font-bold text-xs uppercase tracking-wider mb-2">
-                <Shield className="h-4 w-4" />
-                Browser Privacy Promise
-              </div>
-              <p className="text-xs text-emerald-900/80 dark:text-emerald-300/80 leading-relaxed">
-                This tool processes your inputs strictly using modern JavaScript inside your local web browser. None of your data, text, or calculations are transferred or logged to any remote server.
+            <div className="rounded-3xl bg-sec-soft p-6">
+              <p className="flex items-center gap-2 text-sm font-bold text-ink">
+                <ShieldCheck className="h-5 w-5 text-sec" />
+                Privacy promise
+              </p>
+              <p className="mt-2 text-sm leading-relaxed text-slate-700">
+                This tool runs entirely in your browser. Your files, text, and numbers are never uploaded, stored, or logged on any server.
               </p>
             </div>
-          </div>
+          </aside>
         </div>
       </div>
     </div>
