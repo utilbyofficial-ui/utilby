@@ -64,7 +64,13 @@ Coming soon (registry, `isReady: false`): PDF Compressor, Watermark, Page Number
 9. ~~Lazy-load pdf-lib~~ — done (PDF page initial bundles dropped from 309 kB to 134 kB — 56% load reduction).
 10. ~~Cloudflare Web Analytics~~ — done (cookie-free analytics configured in `src/lib/analytics-config.ts` via `NEXT_PUBLIC_CF_ANALYTICS_TOKEN`).
 
-Then: PDF Editor (text, images, signature, draw, highlight, whiteout), PDF Compressor, Watermark, Page Numbers, PDF→JPG.
+11. ~~PDF to JPG Converter~~ — done (4f866b5, 72/150/300 DPI, JPG/PNG, ZIP download).
+12. ~~PDF Editor~~ — done (c373915, in-browser vector text editing, drag-to-replace, smart background matching cut-and-move for graphics, signatures, pen, highlights, whiteout).
+
+Next tools in queue (one by one):
+- **PDF Compressor** (lossless & lossy PDF compression, DPI downsampling, image stream re-encoding, preservation of vector text).
+- **Watermark PDF** (text & image watermark stamps).
+- **Page Numbers** (custom numbering format, placement, margins).
 
 ## Gotchas
 - `node_modules` on the owner's Mac are macOS-native; a Linux sandbox must run its own `npm ci` in a separate copy.
