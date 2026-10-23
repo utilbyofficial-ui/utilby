@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { TOOLS, CATEGORIES } from "@/lib/tools-registry";
@@ -7,6 +8,10 @@ import { CategoryGlyph } from "@/components/shared/ToolGlyph";
 import { HeroSearch } from "@/components/home/HeroSearch";
 import { ToolCard } from "@/components/shared/ToolCard";
 import { cn } from "@/lib/utils";
+
+export const metadata: Metadata = {
+  alternates: { canonical: "/" },
+};
 
 const QUICK = ["pdf-merger", "image-compressor", "jpg-to-pdf", "qr-code-generator", "split-pdf"];
 

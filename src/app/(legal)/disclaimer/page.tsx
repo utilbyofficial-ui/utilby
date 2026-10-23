@@ -3,6 +3,7 @@ import { Breadcrumbs } from "@/components/layout/Breadcrumbs";
 import { AlertCircle } from "lucide-react";
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/disclaimer" },
   title: "Disclaimer – Utilby Calculations & Utilities",
   description:
     "Disclaimer regarding calculation results, password generation, and third-party advertising on Utilby.",

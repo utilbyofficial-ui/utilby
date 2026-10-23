@@ -4,6 +4,7 @@ import { Breadcrumbs } from "@/components/layout/Breadcrumbs";
 import { ShieldCheck, Zap, Globe, Heart, ArrowRight } from "lucide-react";
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/about" },
   title: "About Us – 100% Free & In-Browser Utilities | Utilby",
   description:
     "Learn about Utilby: our mission to build a fast, secure, free, and privacy-first online utility tools ecosystem for everyone.",

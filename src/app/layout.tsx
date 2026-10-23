@@ -11,7 +11,8 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://utilby.com"),
   title: {
     default: "Utilby - 100% Free Online Utility Tools Network",
-    template: "%s | Utilby",
+    // Page titles already end with "| Utilby", so the template must not add it again.
+    template: "%s",
   },
   description:
     "Free, fast, and secure online utility tools network. Word counter, JSON formatter, percentage calculator, case converter, and secure password generator with zero server uploads.",

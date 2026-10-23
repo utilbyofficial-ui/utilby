@@ -3,6 +3,7 @@ import { Breadcrumbs } from "@/components/layout/Breadcrumbs";
 import { FileText, CheckCircle2 } from "lucide-react";
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/terms-of-service" },
   title: "Terms of Service – Utilby Free Utility Tools",
   description:
     "Terms of Service governing the use of free online utility tools provided by Utilby.",

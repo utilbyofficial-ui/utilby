@@ -3,6 +3,7 @@ import { Breadcrumbs } from "@/components/layout/Breadcrumbs";
 import { ShieldCheck, Lock, CheckCircle2 } from "lucide-react";
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/privacy-policy" },
   title: "Privacy Policy – 100% In-Browser Privacy Guarantee | Utilby",
   description:
     "Privacy Policy for Utilby: our commitment to client-side processing, zero server storage, and strict privacy protections.",

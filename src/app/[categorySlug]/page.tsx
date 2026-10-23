@@ -348,7 +348,7 @@ export default async function CategoryLandingPage({ params }: PageProps) {
                 Explore Other Utilby Toolboxes
               </h2>
               <p className="mt-1 text-sm text-slate-600">
-                Over 15 free client-side tools across PDF, Images, Text, Developer utilities, and Calculators.
+                {TOOLS.filter((t) => t.isReady).length} free client-side tools across PDF, Images, Text, Developer utilities, and Calculators.
               </p>
             </div>
             <Link

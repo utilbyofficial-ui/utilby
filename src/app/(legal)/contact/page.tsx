@@ -3,6 +3,7 @@ import { Breadcrumbs } from "@/components/layout/Breadcrumbs";
 import { Mail, Clock, Shield, MessageSquare, ArrowRight } from "lucide-react";
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/contact" },
   title: "Contact & Support – Get in Touch | Utilby",
   description:
     "Contact the Utilby engineering team for support, feature suggestions, bug reports, and business inquiries.",

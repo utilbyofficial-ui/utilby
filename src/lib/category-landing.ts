@@ -1,4 +1,4 @@
-import type { ToolMeta } from "./tools-registry";
+import { TOOLS, type ToolMeta } from "./tools-registry";
 import { FaqItem } from "@/components/shared/FaqAccordion";
 
 export interface CategoryLandingData {
@@ -35,9 +35,9 @@ export const CATEGORY_LANDING_PAGES: Record<ToolMeta["category"], CategoryLandin
       "Merge, split, organize, rotate, delete, extract pages, and convert JPG to PDF in your browser. No file size limits, no server uploads, and completely free.",
     h1: "Free Online PDF Tools",
     subtitle:
-      "Seven fast, private utilities to organize, merge, split, and convert PDF documents in your browser. Your files never touch a remote server.",
+      "Fast, private utilities to organize, merge, split, and convert PDF documents in your browser. Your files never touch a remote server.",
     highlightStats: [
-      "7 Free Tools Available",
+      "{count} Free Tools Available",
       "100% In-Browser Execution",
       "No File Size Limits",
       "Lossless Quality Preserved",
@@ -468,12 +468,25 @@ export const CATEGORY_LANDING_PAGES: Record<ToolMeta["category"], CategoryLandin
 };
 
 /** Helper to find category landing data by slug or id */
+/** Replaces `{count}` with the live number of ready tools so landing copy never goes stale. */
+function withLiveCounts(data: CategoryLandingData): CategoryLandingData {
+  const count = String(TOOLS.filter((t) => t.category === data.id && t.isReady).length);
+  const fill = (s: string) => s.replace(/\{count\}/g, count);
+  return {
+    ...data,
+    seoTitle: fill(data.seoTitle),
+    seoDescription: fill(data.seoDescription),
+    subtitle: fill(data.subtitle),
+    highlightStats: data.highlightStats.map(fill),
+  };
+}
+
 export function getCategoryLandingData(slugOrId: string): CategoryLandingData | undefined {
   const norm = slugOrId.toLowerCase().trim();
   for (const key of Object.keys(CATEGORY_LANDING_PAGES) as ToolMeta["category"][]) {
     const data = CATEGORY_LANDING_PAGES[key];
     if (data.id === norm || data.slug === norm || data.aliases.includes(norm)) {
-      return data;
+      return withLiveCounts(data);
     }
   }
   return undefined;
