@@ -4,20 +4,126 @@ import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { createPortal } from "react-dom";
-import { Search, Menu, X, ArrowRight } from "lucide-react";
-import { TOOLS, CATEGORIES } from "@/lib/tools-registry";
-import { Logo, ToolGlyph } from "@/components/shared/ToolGlyph";
+import { Search, Menu, X, ArrowRight, ChevronDown } from "lucide-react";
+import { TOOLS, CATEGORIES, type ToolMeta } from "@/lib/tools-registry";
+import { Logo, ToolGlyph, CategoryGlyph } from "@/components/shared/ToolGlyph";
 import { cn } from "@/lib/utils";
-import { POPULAR_TOOL_IDS } from "@/lib/category-style";
+import { POPULAR_TOOL_IDS, CATEGORY_ORDER } from "@/lib/category-style";
+import { CATEGORY_LANDING_PAGES } from "@/lib/category-landing";
 
-const NAV = [
-  { label: "All tools", href: "/#all-tools" },
-  { label: "PDF", href: "/pdf-tools" },
-  { label: "Images", href: "/image-tools" },
-  { label: "Text", href: "/text-tools" },
-  { label: "Developer", href: "/developer-tools" },
-  { label: "Calculators", href: "/calculators" },
+type CategoryId = ToolMeta["category"];
+
+/** Main navigation: one dropdown per toolbox (order follows CATEGORY_ORDER). */
+const NAV_CATEGORIES: { id: CategoryId; label: string }[] = [
+  { id: "pdf", label: "PDF" },
+  { id: "image", label: "Images" },
+  { id: "text", label: "Text" },
+  { id: "developer", label: "Developer" },
+  { id: "calculators", label: "Calculators" },
+  { id: "security", label: "Security" },
 ];
+
+const categoryHref = (id: CategoryId) => `/${CATEGORY_LANDING_PAGES[id]?.slug ?? `tools#${id}`}`;
+const toolsIn = (id: CategoryId) => TOOLS.filter((t) => t.category === id).sort((a, b) => Number(b.isReady) - Number(a.isReady));
+
+function NavDropdown({ id, label, open, onOpen, onClose }: { id: CategoryId; label: string; open: boolean; onOpen: () => void; onClose: () => void }) {
+  const tools = toolsIn(id);
+  const wide = tools.length > 5;
+  const category = CATEGORIES.find((c) => c.id === id);
+  const closeTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  // After Escape we move focus back to the trigger; don't let that focus re-open the menu.
+  const suppressFocusOpen = React.useRef(false);
+  const cancelClose = () => {
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+  };
+  const scheduleClose = () => {
+    cancelClose();
+    closeTimer.current = setTimeout(onClose, 140);
+  };
+  React.useEffect(() => cancelClose, []);
+
+  return (
+    <div
+      className="relative"
+      onMouseEnter={() => {
+        cancelClose();
+        onOpen();
+      }}
+      onMouseLeave={scheduleClose}
+      onFocus={() => {
+        cancelClose();
+        if (suppressFocusOpen.current) return;
+        onOpen();
+      }}
+      onBlur={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+          suppressFocusOpen.current = false;
+          scheduleClose();
+        }
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Escape" && open) {
+          e.stopPropagation();
+          suppressFocusOpen.current = true;
+          onClose();
+          (e.currentTarget.querySelector("a") as HTMLElement | null)?.focus();
+        } else if (e.key === "ArrowDown" && !open) {
+          e.preventDefault();
+          suppressFocusOpen.current = false;
+          onOpen();
+        }
+      }}
+    >
+      <Link
+        href={categoryHref(id)}
+        aria-haspopup="true"
+        aria-expanded={open}
+        className={cn(
+          "flex items-center gap-1 rounded-full px-3 py-2 transition-colors hover:bg-slate-100 hover:text-ink",
+          open && "bg-slate-100 text-ink"
+        )}
+      >
+        {label}
+        <ChevronDown className={cn("h-3.5 w-3.5 text-slate-400 transition-transform", open && "rotate-180 text-ink")} aria-hidden="true" />
+      </Link>
+      {open && (
+        <div className={cn("absolute left-1/2 top-full z-50 -translate-x-1/2 pt-2", wide ? "w-[600px]" : "w-[340px]")}>
+          <div className="animate-pop-in overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-lift">
+            <ul className={cn("grid gap-1 p-2", wide ? "grid-cols-2" : "grid-cols-1")}>
+              {tools.map((t) => (
+                <li key={t.id}>
+                  {t.isReady ? (
+                    <Link href={`/tools/${t.slug}`} onClick={onClose} className="flex items-center gap-3 rounded-2xl p-2.5 transition-colors hover:bg-slate-50 focus-visible:bg-slate-50">
+                      <ToolGlyph tool={t} size="sm" />
+                      <span className="min-w-0">
+                        <span className="block text-sm font-semibold text-ink">{t.name}</span>
+                        <span className="block truncate text-xs font-normal text-slate-600">{t.shortDescription}</span>
+                      </span>
+                    </Link>
+                  ) : (
+                    <span className="flex items-center gap-3 rounded-2xl p-2.5 opacity-60">
+                      <ToolGlyph tool={t} size="sm" />
+                      <span className="min-w-0">
+                        <span className="block text-sm font-semibold text-ink">
+                          {t.name} <span className="ml-1 rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600">Soon</span>
+                        </span>
+                        <span className="block truncate text-xs font-normal text-slate-600">{t.shortDescription}</span>
+                      </span>
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+            <Link href={categoryHref(id)} onClick={onClose} className="flex items-center justify-between border-t border-slate-100 bg-slate-50 px-5 py-3 text-sm font-semibold text-ink hover:bg-slate-100">
+              All {category?.name ?? label}
+              <ArrowRight className="h-4 w-4" aria-hidden="true" />
+            </Link>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function searchTools(query: string) {
   const q = query.trim().toLowerCase();
@@ -38,6 +144,7 @@ export function Header() {
   const [active, setActive] = React.useState(0);
   const [scrolled, setScrolled] = React.useState(false);
   const [heroScrolledPast, setHeroScrolledPast] = React.useState(false);
+  const [openMenu, setOpenMenu] = React.useState<CategoryId | null>(null);
   const isHomepage = pathname === "/";
 
   React.useEffect(() => {
@@ -53,6 +160,7 @@ export function Header() {
   React.useEffect(() => {
     setMenuOpen(false);
     setSearchOpen(false);
+    setOpenMenu(null);
   }, [pathname]);
 
   // ⌘K / Ctrl+K or "/" opens search; Esc closes.
@@ -110,11 +218,12 @@ export function Header() {
           <Logo />
         </Link>
 
-        <nav aria-label="Main" className="hidden items-center gap-1 text-[15px] font-semibold text-slate-700 md:flex">
-          {NAV.map((n) => (
-            <Link key={n.href} href={n.href} className="rounded-full px-3.5 py-2 transition-colors hover:bg-slate-100 hover:text-ink">
-              {n.label}
-            </Link>
+        <nav aria-label="Main" className="hidden items-center gap-0.5 text-[15px] font-semibold text-slate-700 lg:flex">
+          <Link href="/tools" className={cn("rounded-full px-3 py-2 transition-colors hover:bg-slate-100 hover:text-ink", pathname === "/tools" && "bg-slate-100 text-ink")}>
+            All tools
+          </Link>
+          {NAV_CATEGORIES.map((n) => (
+            <NavDropdown key={n.id} id={n.id} label={n.label} open={openMenu === n.id} onOpen={() => setOpenMenu(n.id)} onClose={() => setOpenMenu((m) => (m === n.id ? null : m))} />
           ))}
         </nav>
 
@@ -137,7 +246,7 @@ export function Header() {
           <button
             type="button"
             onClick={() => setMenuOpen((v) => !v)}
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-ink md:hidden"
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-ink lg:hidden"
             aria-label={menuOpen ? "Close menu" : "Open menu"}
             aria-expanded={menuOpen}
           >
@@ -156,22 +265,43 @@ export function Header() {
               : "border-t border-slate-200"
           )}
         >
-          <nav aria-label="Mobile" className="flex flex-wrap gap-2">
-            {NAV.map((n) => (
-              <Link key={n.href} href={n.href} className="rounded-full bg-slate-100 px-4 py-2.5 text-sm font-semibold text-ink">
-                {n.label}
-              </Link>
-            ))}
+          <nav aria-label="Mobile" className="max-h-[75vh] overflow-y-auto">
+            <Link href="/tools" className="flex items-center justify-between rounded-2xl bg-ink px-4 py-3 text-sm font-semibold text-white">
+              All {TOOLS.filter((t) => t.isReady).length} tools
+              <ArrowRight className="h-4 w-4" aria-hidden="true" />
+            </Link>
+            <div className="mt-3 divide-y divide-slate-100">
+              {CATEGORY_ORDER.map((id) => {
+                const c = CATEGORIES.find((x) => x.id === id);
+                const tools = toolsIn(id).filter((t) => t.isReady);
+                if (!c || !tools.length) return null;
+                return (
+                  <details key={id} className="group py-1">
+                    <summary className="flex cursor-pointer list-none items-center gap-3 rounded-2xl px-1 py-2.5 [&::-webkit-details-marker]:hidden">
+                      <CategoryGlyph category={id} size="sm" />
+                      <span className="flex-1 text-sm font-bold text-ink">{c.name}</span>
+                      <span className="text-xs text-slate-500">{tools.length}</span>
+                      <ChevronDown className="h-4 w-4 text-slate-400 transition-transform group-open:rotate-180" aria-hidden="true" />
+                    </summary>
+                    <ul className="grid grid-cols-1 gap-0.5 pb-2 pl-12 sm:grid-cols-2">
+                      {tools.map((t) => (
+                        <li key={t.id}>
+                          <Link href={`/tools/${t.slug}`} className="block rounded-xl px-2 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 hover:text-ink">
+                            {t.name}
+                          </Link>
+                        </li>
+                      ))}
+                      <li>
+                        <Link href={categoryHref(id)} className="block rounded-xl px-2 py-2 text-sm font-semibold text-ink hover:bg-slate-50">
+                          All {c.name} →
+                        </Link>
+                      </li>
+                    </ul>
+                  </details>
+                );
+              })}
+            </div>
           </nav>
-          <p className="mb-2 mt-5 text-xs font-semibold uppercase tracking-wider text-slate-500">Popular</p>
-          <div className="grid grid-cols-1 gap-1">
-            {popular.map((t) => (
-              <Link key={t.id} href={`/tools/${t.slug}`} className="flex items-center gap-3 rounded-2xl p-2 hover:bg-slate-50">
-                <ToolGlyph tool={t} size="sm" />
-                <span className="text-sm font-semibold text-ink">{t.name}</span>
-              </Link>
-            ))}
-          </div>
         </div>
       )}
 

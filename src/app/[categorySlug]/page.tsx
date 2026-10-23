@@ -352,7 +352,7 @@ export default async function CategoryLandingPage({ params }: PageProps) {
               </p>
             </div>
             <Link
-              href="/#all-tools"
+              href="/tools"
               className="text-sm font-semibold text-ink underline-offset-4 hover:underline"
             >
               Browse all tools →

@@ -37,8 +37,11 @@ export function ToolLayout({
   const categoryData = getCategoryLandingData(categorySlug);
   const categoryHref = categoryData ? `/${categoryData.slug}` : `/#${categorySlug}`;
   const categoryUrl = `https://utilby.com${categoryHref}`;
-  const breadcrumbs: BreadcrumbItem[] = [{ label: category, href: categoryHref }, { label: title }];
   const tool = TOOLS.find((t) => t.id === toolId);
+  // One name everywhere: the registry name is the single source of truth for the visible tool name.
+  // (SEO keywords stay in each page's <title>/meta description.)
+  const name = tool?.name ?? title;
+  const breadcrumbs: BreadcrumbItem[] = [{ label: category, href: categoryHref }, { label: name }];
   const catId = tool?.category ?? (categorySlug as keyof typeof CATEGORY_STYLES);
   const style = CATEGORY_STYLES[catId] ?? CATEGORY_STYLES.developer;
 
@@ -51,7 +54,7 @@ export function ToolLayout({
   return (
     <div className="pb-8">
       <SchemaScript
-        toolName={title}
+        toolName={name}
         description={subtitle}
         url={`https://utilby.com/tools/${toolId}`}
         category={category}
@@ -59,7 +62,7 @@ export function ToolLayout({
         breadcrumbs={[
           { name: "Home", url: "https://utilby.com" },
           { name: category, url: categoryUrl },
-          { name: title, url: `https://utilby.com/tools/${toolId}` },
+          { name, url: `https://utilby.com/tools/${toolId}` },
         ]}
       />
 
@@ -77,7 +80,7 @@ export function ToolLayout({
             )}
             <div className="min-w-0 flex-1">
               <h1 className="font-display text-2xl font-extrabold tracking-[-0.02em] text-ink sm:text-4xl lg:text-5xl leading-tight">
-                {title}
+                {name}
               </h1>
               <p className="mt-1 max-w-3xl text-xs leading-relaxed text-slate-600 sm:mt-2 sm:text-base sm:text-slate-700">
                 {subtitle}
@@ -102,7 +105,7 @@ export function ToolLayout({
           <div className="min-w-0 space-y-14">
             <section aria-labelledby="how-to">
               <h2 id="how-to" className="font-display text-3xl font-bold tracking-tight text-ink">
-                How to use {title}
+                How to use {name}
               </h2>
               <ol className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
                 {howToSteps.map((step, idx) => (

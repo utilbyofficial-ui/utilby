@@ -104,7 +104,7 @@ export default function AboutPage() {
               </p>
             </div>
             <Link
-              href="/#all-tools"
+              href="/tools"
               className="inline-flex items-center gap-2 rounded-xl bg-ink px-5 py-3 text-sm font-bold text-white hover:bg-slate-800 transition-colors shrink-0"
             >
               Explore all tools

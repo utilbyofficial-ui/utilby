@@ -3,8 +3,9 @@ import { ArrowRight } from "lucide-react";
 import { TOOLS, CATEGORIES } from "@/lib/tools-registry";
 import { CATEGORY_STYLES, CATEGORY_ORDER, POPULAR_TOOL_IDS } from "@/lib/category-style";
 import { CATEGORY_LANDING_PAGES } from "@/lib/category-landing";
-import { ToolGlyph, CategoryGlyph } from "@/components/shared/ToolGlyph";
+import { CategoryGlyph } from "@/components/shared/ToolGlyph";
 import { HeroSearch } from "@/components/home/HeroSearch";
+import { ToolCard } from "@/components/shared/ToolCard";
 import { cn } from "@/lib/utils";
 
 const QUICK = ["pdf-merger", "image-compressor", "jpg-to-pdf", "qr-code-generator", "split-pdf"];
@@ -30,7 +31,7 @@ export default function HomePage() {
       <section className="mx-auto max-w-[1240px] px-4 pb-12 pt-14 text-center sm:px-6 sm:pt-20 lg:px-8">
         <p className="animate-fade-up inline-flex items-center gap-2 rounded-full bg-sec-soft px-4 py-2 text-sm font-semibold text-emerald-800">
           <span className="h-2 w-2 rounded-full bg-sec" />
-          15 free browser tools · No sign-up
+          {ready.length} free browser tools · No sign-up
         </p>
         <h1 className="animate-fade-up mx-auto mt-6 max-w-[900px] font-display text-[44px] font-extrabold leading-[1.02] tracking-[-0.035em] text-ink sm:text-[64px] lg:text-[84px]">
           The friendly toolbox for{" "}
@@ -98,8 +99,8 @@ export default function HomePage() {
           <h2 id="popular" className="font-display text-3xl font-bold tracking-tight text-ink sm:text-4xl">
             Most loved
           </h2>
-          <Link href="#all-tools" className="text-[15px] font-semibold text-ink underline-offset-4 hover:underline">
-            Explore all toolboxes →
+          <Link href="/tools" className="text-[15px] font-semibold text-ink underline-offset-4 hover:underline">
+            See all {ready.length} tools →
           </Link>
         </div>
         <div className="stagger mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -131,34 +132,6 @@ export default function HomePage() {
           </div>
         </div>
       </section>
-    </div>
-  );
-}
-
-function ToolCard({ tool, compact = false }: { tool: (typeof TOOLS)[number]; compact?: boolean }) {
-  const body = (
-    <>
-      <ToolGlyph tool={tool} size={compact ? "sm" : "md"} />
-      <span className="min-w-0">
-        <span className="flex flex-wrap items-center gap-2 text-[17px] font-bold text-ink">
-          {tool.name}
-          {!tool.isReady && <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600">Coming soon</span>}
-        </span>
-        <span className="mt-1 block text-sm leading-snug text-slate-600">{tool.shortDescription}</span>
-      </span>
-    </>
-  );
-  const cls = cn(
-    "flex items-start gap-4 rounded-[22px] border border-slate-200 bg-white p-5 shadow-soft transition-all duration-200",
-    tool.isReady ? "hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-lift" : "opacity-70"
-  );
-  return tool.isReady ? (
-    <Link href={`/tools/${tool.slug}`} className={cls}>
-      {body}
-    </Link>
-  ) : (
-    <div className={cls} aria-disabled="true">
-      {body}
     </div>
   );
 }
