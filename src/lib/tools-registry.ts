@@ -246,10 +246,10 @@ export const TOOLS: ToolMeta[] = [
     slug: "pdf-compressor",
     category: "pdf",
     categoryName: "PDF Tools",
-    shortDescription: "Compress and optimize PDF file sizes directly in your browser.",
-    longDescription: "Efficient PDF compression tool preserving text legibility and document formatting.",
+    shortDescription: "Reduce PDF file size in your browser while keeping text and vector graphics sharp.",
+    longDescription: "Client-side PDF compression with supported JPEG image downsampling, repeated stream deduplication, and vector text preservation.",
     iconName: "FileArchive",
-    isReady: false,
+    isReady: true,
     keywords: ["pdf compressor", "compress pdf online", "reduce pdf size"],
   },
 ];
