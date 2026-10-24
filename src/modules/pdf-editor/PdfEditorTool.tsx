@@ -96,9 +96,9 @@ type Gesture =
 
 const TOOLS: { id: ToolMode; label: string; icon: React.ElementType; hint: string }[] = [
   { id: "select", label: "Select", icon: MousePointer2, hint: "Click any element to select it. Drag to move, pull the handles to resize." },
-  { id: "editText", label: "Edit text", icon: TextCursorInput, hint: "Click a text line to edit it. On scanned pages, drag over text to rebuild the background and replace it." },
+  { id: "editText", label: "Edit text", icon: TextCursorInput, hint: "Click a text line to edit it. Scanned pages may contain background details that cannot be reconstructed exactly." },
   { id: "text", label: "Add text", icon: Type, hint: "Click where you want to add text." },
-  { id: "moveElement", label: "Cut & move", icon: Scissors, hint: "Drag around an image or block to lift it out. The editor repairs the space underneath, then you can move or resize it." },
+  { id: "moveElement", label: "Cut & move", icon: Scissors, hint: "Drag around an image or block to lift it out. Background repair is approximate; inspect the result before exporting." },
   { id: "draw", label: "Draw", icon: PenTool, hint: "Draw freehand with your mouse, finger or pen." },
   { id: "highlight", label: "Highlight", icon: Highlighter, hint: "Drag across text to highlight it." },
   { id: "whiteout", label: "Whiteout", icon: Eraser, hint: "Drag over anything to cover it. Text underneath is removed from the file too." },
@@ -1042,6 +1042,15 @@ export function PdfEditorTool() {
         />
       </div>
 
+      {(tool === "editText" || tool === "moveElement") && (
+        <div className="flex items-start gap-2 border-b border-amber-200 bg-amber-50 px-4 py-2.5 text-xs text-amber-950" role="status">
+          <Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
+          <p>
+            Scanned or watermarked pages may have background details under the text that the editor cannot recover exactly. Any background fill is approximate—review the edited page beside the original before downloading. For official identity documents, use the issuing authority’s correction process.
+          </p>
+        </div>
+      )}
+
       {/* Properties bar — fixed height so the page never jumps when switching tools */}
       <div className="flex min-h-[52px] flex-wrap items-center gap-x-4 gap-y-2 border-b border-slate-200 bg-slate-50 px-3 py-2 text-xs sm:px-4">
         {selectedTextAnn || selectedExisting || tool === "text" || (tool === "editText" && !selectedAnn) ? (
@@ -1084,7 +1093,7 @@ export function PdfEditorTool() {
             <span className="font-semibold text-slate-700">Leave behind:</span>
             {(
               [
-                ["repair", "Smart background repair"],
+                ["repair", "Approximate background fill"],
                 ["white", "White"],
                 ["duplicate", "Nothing (copy)"],
               ] as const
