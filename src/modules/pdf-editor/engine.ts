@@ -27,6 +27,8 @@ export interface ExistingTextItem {
   fontSize: number;
   color: string;
   bgColor?: string;
+  /** Locally reconstructed page pixels used to blend edits into the original background. */
+  bgPatchDataUrl?: string;
   fontFamily: "Helvetica" | "Times" | "Courier";
   isBold?: boolean;
   isEdited: boolean;
@@ -90,6 +92,8 @@ export interface WhiteoutAnnotation extends BaseAnnotation {
   normW: number;
   normH: number;
   color?: string; // hex color of the redaction/background patch, default #FFFFFF
+  /** Optional repaired page pixels for non-uniform backgrounds. */
+  dataUrl?: string;
 }
 
 export interface ShapeAnnotation extends BaseAnnotation {
@@ -382,14 +386,34 @@ export async function exportPdfWithAnnotations(
     // 2. Draw annotations in order.
     for (const ann of pageAnns) {
       switch (ann.type) {
-        case "whiteout":
+        case "whiteout": {
+          if (ann.dataUrl) {
+            const embedded = await embedImage(ann.dataUrl);
+            if (embedded) {
+              const anchor = uprightAnchor(geom, ann.normX, ann.normY + ann.normH);
+              page.drawImage(embedded, {
+                x: anchor.x,
+                y: anchor.y,
+                width: Math.max(1, ann.normW * disp.width),
+                height: Math.max(1, ann.normH * disp.height),
+                rotate,
+              });
+              break;
+            }
+          }
+          const r = toPdfRect(geom, ann.normX, ann.normY, ann.normW, ann.normH);
+          const { r: cr, g, b } = hexToRgb(ann.color || "#FFFFFF");
+          page.drawRectangle({ ...r, color: rgb(cr, g, b), opacity: 1 });
+          break;
+        }
+
         case "highlight": {
           const r = toPdfRect(geom, ann.normX, ann.normY, ann.normW, ann.normH);
-          const { r: cr, g, b } = hexToRgb(ann.type === "whiteout" ? ann.color || "#FFFFFF" : ann.color);
+          const { r: cr, g, b } = hexToRgb(ann.color);
           page.drawRectangle({
             ...r,
             color: rgb(cr, g, b),
-            opacity: ann.type === "highlight" ? ann.opacity ?? 0.35 : 1,
+            opacity: ann.opacity ?? 0.35,
           });
           break;
         }
@@ -649,15 +673,20 @@ export function buildCombinedAnnotations(
 
     const padX = 0.003;
     const padY = 0.003;
+    const eraseX = Math.max(0, item.origNormX - padX);
+    const eraseY = Math.max(0, item.origNormY - padY);
+    const eraseRight = Math.min(1, item.origNormX + item.origNormW + padX);
+    const eraseBottom = Math.min(1, item.origNormY + item.origNormH + padY);
     erase.push({
       id: `whiteout-for-${item.id}`,
       pageIndex: item.pageIndex,
       type: "whiteout",
-      normX: Math.max(0, item.origNormX - padX),
-      normY: Math.max(0, item.origNormY - padY),
-      normW: Math.min(1, item.origNormW + padX * 2),
-      normH: Math.min(1, item.origNormH + padY * 2),
+      normX: eraseX,
+      normY: eraseY,
+      normW: Math.max(0, eraseRight - eraseX),
+      normH: Math.max(0, eraseBottom - eraseY),
       color: item.bgColor || "#FFFFFF",
+      dataUrl: item.bgPatchDataUrl,
     });
 
     if (!item.isDeleted && item.currentText.trim()) {
@@ -772,21 +801,28 @@ export function captureCanvasRegion(
   normH: number
 ): string | null {
   try {
-    const sx = Math.floor(normX * sourceCanvas.width);
-    const sy = Math.floor(normY * sourceCanvas.height);
-    const sw = Math.ceil(normW * sourceCanvas.width);
-    const sh = Math.ceil(normH * sourceCanvas.height);
+    const sx = Math.max(0, Math.floor(normX * sourceCanvas.width));
+    const sy = Math.max(0, Math.floor(normY * sourceCanvas.height));
+    const sw = Math.min(sourceCanvas.width - sx, Math.ceil(normW * sourceCanvas.width));
+    const sh = Math.min(sourceCanvas.height - sy, Math.ceil(normH * sourceCanvas.height));
 
     if (sw <= 0 || sh <= 0) return null;
 
+    // Keep large lifted areas sharp while avoiding enormous temporary canvases/data URLs.
+    const scale = Math.min(1, Math.sqrt(8_000_000 / (sw * sh)));
     const cropCanvas = document.createElement("canvas");
-    cropCanvas.width = sw;
-    cropCanvas.height = sh;
-    const ctx = cropCanvas.getContext("2d");
-    if (!ctx) return null;
-
-    ctx.drawImage(sourceCanvas, sx, sy, sw, sh, 0, 0, sw, sh);
-    return cropCanvas.toDataURL("image/png");
+    try {
+      cropCanvas.width = Math.max(1, Math.round(sw * scale));
+      cropCanvas.height = Math.max(1, Math.round(sh * scale));
+      const ctx = cropCanvas.getContext("2d");
+      if (!ctx) return null;
+      ctx.imageSmoothingQuality = "high";
+      ctx.drawImage(sourceCanvas, sx, sy, sw, sh, 0, 0, cropCanvas.width, cropCanvas.height);
+      return cropCanvas.toDataURL("image/png");
+    } finally {
+      cropCanvas.width = 0;
+      cropCanvas.height = 0;
+    }
   } catch (err) {
     console.error("captureCanvasRegion error:", err);
     return null;
@@ -822,16 +858,17 @@ export function sampleCanvasBorderColor(
       return { r: p[0]!, g: p[1]!, b: p[2]! };
     };
 
+    const margin = Math.max(3, Math.min(16, Math.round(Math.min(w, h) * 0.18)));
     const steps = 8;
     for (let i = 0; i <= steps; i++) {
       const px = Math.round(x + (w * i) / steps);
-      samples.push(getPixel(px, y - 2));
-      samples.push(getPixel(px, y + h + 2));
+      samples.push(getPixel(px, y - margin));
+      samples.push(getPixel(px, y + h + margin));
     }
     for (let j = 0; j <= steps; j++) {
       const py = Math.round(y + (h * j) / steps);
-      samples.push(getPixel(x - 2, py));
-      samples.push(getPixel(x + w + 2, py));
+      samples.push(getPixel(x - margin, py));
+      samples.push(getPixel(x + w + margin, py));
     }
 
     if (samples.length === 0) return "#FFFFFF";
@@ -845,5 +882,193 @@ export function sampleCanvasBorderColor(
   } catch (err) {
     console.warn("sampleCanvasBorderColor error:", err);
     return "#FFFFFF";
+  }
+}
+
+/**
+ * Builds a page-background patch for an edited or lifted area. It searches nearby page pixels
+ * for a patch whose edges resemble the selected area's surroundings, then feathers the seam.
+ * If no suitable patch exists, it interpolates the sampled edge colours for a clean gradient
+ * fill. This is a local browser-only repair, so the source PDF never leaves the device.
+ */
+export function createBackgroundRepairPatch(
+  sourceCanvas: HTMLCanvasElement,
+  normX: number,
+  normY: number,
+  normW: number,
+  normH: number
+): string | null {
+  let repairCanvas: HTMLCanvasElement | null = null;
+  let searchCanvas: HTMLCanvasElement | null = null;
+  try {
+    const sx = Math.max(0, Math.floor(normX * sourceCanvas.width));
+    const sy = Math.max(0, Math.floor(normY * sourceCanvas.height));
+    const sw = Math.min(sourceCanvas.width - sx, Math.ceil(normW * sourceCanvas.width));
+    const sh = Math.min(sourceCanvas.height - sy, Math.ceil(normH * sourceCanvas.height));
+    if (sw <= 0 || sh <= 0) return null;
+
+    const outputScale = Math.min(1, Math.sqrt(8_000_000 / (sw * sh)));
+    const outW = Math.max(1, Math.round(sw * outputScale));
+    const outH = Math.max(1, Math.round(sh * outputScale));
+    const sourceContext = sourceCanvas.getContext("2d", { willReadFrequently: true });
+    if (!sourceContext) return null;
+
+    // A tiny proxy keeps content-aware candidate search cheap even for high-resolution pages.
+    const searchScale = Math.min(1, 512 / Math.max(sourceCanvas.width, sourceCanvas.height));
+    searchCanvas = document.createElement("canvas");
+    searchCanvas.width = Math.max(1, Math.round(sourceCanvas.width * searchScale));
+    searchCanvas.height = Math.max(1, Math.round(sourceCanvas.height * searchScale));
+    const searchContext = searchCanvas.getContext("2d", { willReadFrequently: true });
+    if (!searchContext) return null;
+    searchContext.drawImage(sourceCanvas, 0, 0, searchCanvas.width, searchCanvas.height);
+    const proxy = searchContext.getImageData(0, 0, searchCanvas.width, searchCanvas.height);
+    const pw = Math.max(1, Math.min(searchCanvas.width, Math.round(sw * searchScale)));
+    const ph = Math.max(1, Math.min(searchCanvas.height, Math.round(sh * searchScale)));
+    const px = Math.max(0, Math.min(searchCanvas.width - pw, Math.round(sx * searchScale)));
+    const py = Math.max(0, Math.min(searchCanvas.height - ph, Math.round(sy * searchScale)));
+    const pixel = (x: number, y: number) => {
+      const ix = Math.max(0, Math.min(searchCanvas!.width - 1, x));
+      const iy = Math.max(0, Math.min(searchCanvas!.height - 1, y));
+      const i = (iy * searchCanvas!.width + ix) * 4;
+      return [proxy.data[i]!, proxy.data[i + 1]!, proxy.data[i + 2]!] as const;
+    };
+
+    let best: { x: number; y: number; score: number } | null = null;
+    const rangeX = Math.max(8, Math.round(pw * 2));
+    const rangeY = Math.max(8, Math.round(ph * 2));
+    const stepX = Math.max(2, Math.floor(pw / 2));
+    const stepY = Math.max(2, Math.floor(ph / 2));
+    const minX = Math.max(0, px - rangeX);
+    const maxX = Math.min(searchCanvas.width - pw, px + rangeX);
+    const minY = Math.max(0, py - rangeY);
+    const maxY = Math.min(searchCanvas.height - ph, py + rangeY);
+    const samples = 8;
+
+    for (let cy = minY; cy <= maxY; cy += stepY) {
+      for (let cx = minX; cx <= maxX; cx += stepX) {
+        const overlaps = cx < px + pw + 2 && cx + pw + 2 > px && cy < py + ph + 2 && cy + ph + 2 > py;
+        if (overlaps) continue;
+        let error = 0;
+        let count = 0;
+        for (let i = 0; i < samples; i++) {
+          const ratio = (i + 0.5) / samples;
+          const dx = Math.min(pw - 1, Math.floor(ratio * pw));
+          const dy = Math.min(ph - 1, Math.floor(ratio * ph));
+          const pairs: Array<readonly [readonly number[], readonly number[]]> = [
+            [pixel(cx + dx, cy), pixel(px + dx, py - 1)],
+            [pixel(cx + dx, cy + ph - 1), pixel(px + dx, py + ph)],
+            [pixel(cx, cy + dy), pixel(px - 1, py + dy)],
+            [pixel(cx + pw - 1, cy + dy), pixel(px + pw, py + dy)],
+          ];
+          for (const [a, b] of pairs) {
+            error += Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) + Math.abs(a[2] - b[2]);
+            count += 3;
+          }
+        }
+        // Avoid lifting a neighbouring word/line as the background patch. A patch should be
+        // locally quiet; detailed photo backgrounds fall back to edge-colour interpolation.
+        let luminanceSum = 0;
+        let luminanceSquared = 0;
+        let interiorSamples = 0;
+        for (let iy = 1; iy <= 4; iy++) {
+          for (let ix = 1; ix <= 4; ix++) {
+            const [r, g, b] = pixel(cx + Math.floor((ix * pw) / 5), cy + Math.floor((iy * ph) / 5));
+            const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+            luminanceSum += luminance;
+            luminanceSquared += luminance * luminance;
+            interiorSamples++;
+          }
+        }
+        const variance = luminanceSquared / interiorSamples - (luminanceSum / interiorSamples) ** 2;
+        const score = error / Math.max(1, count) + Math.max(0, variance - 180) * 0.08;
+        if (!best || score < best.score) best = { x: cx, y: cy, score };
+      }
+    }
+
+    repairCanvas = document.createElement("canvas");
+    repairCanvas.width = outW;
+    repairCanvas.height = outH;
+    const repairContext = repairCanvas.getContext("2d", { willReadFrequently: true });
+    if (!repairContext) return null;
+    repairContext.imageSmoothingQuality = "high";
+
+    const patchIsSimilar = best !== null && best.score < 90;
+    if (patchIsSimilar && best) {
+      const sourceScaleX = sourceCanvas.width / searchCanvas.width;
+      const sourceScaleY = sourceCanvas.height / searchCanvas.height;
+      const cloneX = Math.max(0, Math.min(sourceCanvas.width - sw, Math.round(best.x * sourceScaleX)));
+      const cloneY = Math.max(0, Math.min(sourceCanvas.height - sh, Math.round(best.y * sourceScaleY)));
+      repairContext.drawImage(sourceCanvas, cloneX, cloneY, sw, sh, 0, 0, outW, outH);
+
+      // Feather only a narrow edge band so the patch meets the surrounding page without a seam.
+      const patch = repairContext.getImageData(0, 0, outW, outH);
+      const feather = Math.min(6, Math.max(1, Math.floor(Math.min(outW, outH) / 4)));
+      const edgeTop = sourceContext.getImageData(sx, Math.max(0, sy - 1), sw, 1).data;
+      const edgeBottom = sourceContext.getImageData(sx, Math.min(sourceCanvas.height - 1, sy + sh), sw, 1).data;
+      const edgeLeft = sourceContext.getImageData(Math.max(0, sx - 1), sy, 1, sh).data;
+      const edgeRight = sourceContext.getImageData(Math.min(sourceCanvas.width - 1, sx + sw), sy, 1, sh).data;
+      for (let y = 0; y < outH; y++) {
+        for (let x = 0; x < outW; x++) {
+          const edgeDistance = Math.min(x, y, outW - 1 - x, outH - 1 - y);
+          if (edgeDistance >= feather) continue;
+          const alpha = Math.max(0, edgeDistance / feather);
+          const at = (y * outW + x) * 4;
+          const top = y < feather;
+          const bottom = outH - 1 - y < feather;
+          const left = x < feather;
+          const right = outW - 1 - x < feather;
+          const positions = [
+            top ? Math.min(sw - 1, Math.floor((x / outW) * sw)) : -1,
+            bottom ? Math.min(sw - 1, Math.floor((x / outW) * sw)) : -1,
+            left ? Math.min(sh - 1, Math.floor((y / outH) * sh)) : -1,
+            right ? Math.min(sh - 1, Math.floor((y / outH) * sh)) : -1,
+          ];
+          const indexes = [positions[0]! * 4, positions[1]! * 4, positions[2]! * 4, positions[3]! * 4];
+          const channels = [0, 1, 2];
+          for (const channel of channels) {
+            let background = 0;
+            let n = 0;
+            if (top && positions[0]! >= 0) { background += edgeTop[indexes[0]! + channel]!; n++; }
+            if (bottom && positions[1]! >= 0) { background += edgeBottom[indexes[1]! + channel]!; n++; }
+            if (left && positions[2]! >= 0) { background += edgeLeft[indexes[2]! + channel]!; n++; }
+            if (right && positions[3]! >= 0) { background += edgeRight[indexes[3]! + channel]!; n++; }
+            const original = background / Math.max(1, n);
+            patch.data[at + channel] = Math.round(original * (1 - alpha) + patch.data[at + channel]! * alpha);
+          }
+        }
+      }
+      repairContext.putImageData(patch, 0, 0);
+    } else {
+      // Smooth fallback for gradients and paper backgrounds when no neighbouring patch matches.
+      const corners = [
+        pixel(px, py - 1),
+        pixel(px + pw - 1, py - 1),
+        pixel(px, py + ph),
+        pixel(px + pw - 1, py + ph),
+      ];
+      const gradient = repairContext.createImageData(outW, outH);
+      for (let y = 0; y < outH; y++) {
+        const v = outH > 1 ? y / (outH - 1) : 0;
+        for (let x = 0; x < outW; x++) {
+          const u = outW > 1 ? x / (outW - 1) : 0;
+          const at = (y * outW + x) * 4;
+          for (let c = 0; c < 3; c++) {
+            const top = corners[0]![c]! * (1 - u) + corners[1]![c]! * u;
+            const bottom = corners[2]![c]! * (1 - u) + corners[3]![c]! * u;
+            gradient.data[at + c] = Math.round(top * (1 - v) + bottom * v);
+          }
+          gradient.data[at + 3] = 255;
+        }
+      }
+      repairContext.putImageData(gradient, 0, 0);
+    }
+
+    return repairCanvas.toDataURL("image/png");
+  } catch (err) {
+    console.warn("Could not reconstruct the page background:", err);
+    return null;
+  } finally {
+    if (repairCanvas) { repairCanvas.width = 0; repairCanvas.height = 0; }
+    if (searchCanvas) { searchCanvas.width = 0; searchCanvas.height = 0; }
   }
 }

@@ -15,6 +15,7 @@ import {
   toDisplayTextItems,
   buildCombinedAnnotations,
   captureCanvasRegion,
+  createBackgroundRepairPatch,
   sampleCanvasBorderColor,
   sampleTextColor,
   newAnnotationId,
@@ -95,9 +96,9 @@ type Gesture =
 
 const TOOLS: { id: ToolMode; label: string; icon: React.ElementType; hint: string }[] = [
   { id: "select", label: "Select", icon: MousePointer2, hint: "Click any element to select it. Drag to move, pull the handles to resize." },
-  { id: "editText", label: "Edit text", icon: TextCursorInput, hint: "Click any line of text to edit it. On scanned pages, drag a box over the text to replace it." },
+  { id: "editText", label: "Edit text", icon: TextCursorInput, hint: "Click a text line to edit it. On scanned pages, drag over text to rebuild the background and replace it." },
   { id: "text", label: "Add text", icon: Type, hint: "Click where you want to add text." },
-  { id: "moveElement", label: "Cut & move", icon: Scissors, hint: "Drag a box around a logo, picture or block to lift it out. Then move, resize or replace it." },
+  { id: "moveElement", label: "Cut & move", icon: Scissors, hint: "Drag around an image or block to lift it out. The editor repairs the space underneath, then you can move or resize it." },
   { id: "draw", label: "Draw", icon: PenTool, hint: "Draw freehand with your mouse, finger or pen." },
   { id: "highlight", label: "Highlight", icon: Highlighter, hint: "Drag across text to highlight it." },
   { id: "whiteout", label: "Whiteout", icon: Eraser, hint: "Drag over anything to cover it. Text underneath is removed from the file too." },
@@ -151,7 +152,7 @@ export function PdfEditorTool() {
   const [ink, setInk] = React.useState({ color: "#E11D48", width: 3 });
   const [highlightColor, setHighlightColor] = React.useState(HIGHLIGHTS[0]!);
   const [shapeColor, setShapeColor] = React.useState("#E11D48");
-  const [cutMode, setCutMode] = React.useState<"match" | "white" | "duplicate">("match");
+  const [cutMode, setCutMode] = React.useState<"repair" | "white" | "duplicate">("repair");
   const [keepAspect, setKeepAspect] = React.useState(true);
 
   // content + history
@@ -615,9 +616,10 @@ export function PdfEditorTool() {
       const dataUrl = captureCanvasRegion(canvas, box.normX, box.normY, box.normW, box.normH);
       if (!dataUrl) return;
       const bg = sampleCanvasBorderColor(canvas, box.normX, box.normY, box.normW, box.normH);
+      const backgroundPatch = cutMode === "repair" ? createBackgroundRepairPatch(canvas, box.normX, box.normY, box.normW, box.normH) : null;
       const img: ImageAnnotation = { id: newAnnotationId("cut"), pageIndex, type: "image", ...box, dataUrl };
       const patch: WhiteoutAnnotation[] =
-        cutMode === "duplicate" ? [] : [{ id: newAnnotationId("patch"), pageIndex, type: "whiteout", ...box, color: cutMode === "match" ? bg : "#FFFFFF" }];
+        cutMode === "duplicate" ? [] : [{ id: newAnnotationId("patch"), pageIndex, type: "whiteout", ...box, color: cutMode === "repair" ? bg : "#FFFFFF", dataUrl: backgroundPatch ?? undefined }];
       commit([...annRef.current, ...patch, cutMode === "duplicate" ? { ...img, normX: box.normX + 0.02, normY: box.normY + 0.02 } : img]);
       setSelectedId(img.id);
       setTool("select");
@@ -625,11 +627,17 @@ export function PdfEditorTool() {
       return;
     }
     if (g.tool === "editText" && canvas) {
-      // Scanned / image text: erase the area with its background colour and drop an editable text box
-      const bg = sampleCanvasBorderColor(canvas, box.normX, box.normY, box.normW, box.normH);
+      // Scanned / image text: repair the page pixels underneath, then place an editable text box.
+      const eraseX = Math.max(0, box.normX - 0.004);
+      const eraseY = Math.max(0, box.normY - 0.004);
+      const eraseRight = Math.min(1, box.normX + box.normW + 0.004);
+      const eraseBottom = Math.min(1, box.normY + box.normH + 0.004);
+      const eraseBox = { normX: eraseX, normY: eraseY, normW: eraseRight - eraseX, normH: eraseBottom - eraseY };
+      const bg = sampleCanvasBorderColor(canvas, eraseBox.normX, eraseBox.normY, eraseBox.normW, eraseBox.normH);
+      const backgroundPatch = createBackgroundRepairPatch(canvas, eraseBox.normX, eraseBox.normY, eraseBox.normW, eraseBox.normH);
       const color = sampleTextColor(canvas, box.normX, box.normY, box.normW, box.normH, bg);
       const fontSize = Math.round(clamp(box.normH * (pageSize?.h || 800) * 0.72, 6, 96));
-      const wo: WhiteoutAnnotation = { id: newAnnotationId("erase"), pageIndex, type: "whiteout", ...box, color: bg };
+      const wo: WhiteoutAnnotation = { id: newAnnotationId("erase"), pageIndex, type: "whiteout", ...eraseBox, color: bg, dataUrl: backgroundPatch ?? undefined };
       const t: TextAnnotation = {
         id: newAnnotationId("rep"),
         pageIndex,
@@ -692,7 +700,17 @@ export function PdfEditorTool() {
 
   const startEditExisting = (t: ExistingTextItem) => {
     typingBefore.current = snapshot();
-    if (!editsRef.current[t.id]) setLiveState(undefined, { ...editsRef.current, [t.id]: { ...t, isEdited: true } });
+    if (!editsRef.current[t.id]) {
+      const canvas = canvasRef.current;
+      const patchX = Math.max(0, t.origNormX - 0.003);
+      const patchY = Math.max(0, t.origNormY - 0.003);
+      const patchRight = Math.min(1, t.origNormX + t.origNormW + 0.003);
+      const patchBottom = Math.min(1, t.origNormY + t.origNormH + 0.003);
+      const bgPatchDataUrl = canvas
+        ? createBackgroundRepairPatch(canvas, patchX, patchY, patchRight - patchX, patchBottom - patchY)
+        : null;
+      setLiveState(undefined, { ...editsRef.current, [t.id]: { ...t, isEdited: true, bgPatchDataUrl: bgPatchDataUrl ?? undefined } });
+    }
     setSelectedId(t.id);
     setEditingId(t.id);
   };
@@ -1044,7 +1062,7 @@ export function PdfEditorTool() {
             <Stepper label="Width" value={selectedAnn.strokeWidth} options={[1, 2, 3, 5, 8]} onChange={(w) => updateAnn(selectedAnn.id, (a) => ({ ...(a as ShapeAnnotation), strokeWidth: w }))} />
           </div>
         ) : selectedAnn && selectedAnn.type === "whiteout" ? (
-          <Swatches label="Cover colour" colors={["#FFFFFF", "#F4F2FA", "#16141F", selectedAnn.color ?? "#FFFFFF"].filter((c, i, arr) => arr.indexOf(c) === i)} value={selectedAnn.color ?? "#FFFFFF"} onChange={(c) => updateAnn(selectedAnn.id, (a) => ({ ...(a as WhiteoutAnnotation), color: c }))} />
+          <Swatches label={selectedAnn.dataUrl ? "Repair / cover colour" : "Cover colour"} colors={["#FFFFFF", "#F4F2FA", "#16141F", selectedAnn.color ?? "#FFFFFF"].filter((c, i, arr) => arr.indexOf(c) === i)} value={selectedAnn.color ?? "#FFFFFF"} onChange={(c) => updateAnn(selectedAnn.id, (a) => ({ ...(a as WhiteoutAnnotation), color: c, dataUrl: undefined }))} />
         ) : selectedAnn && selectedAnn.type === "highlight" ? (
           <Swatches label="Highlight" colors={HIGHLIGHTS} value={selectedAnn.color} onChange={(c) => updateAnn(selectedAnn.id, (a) => ({ ...a, color: c }) as Annotation)} />
         ) : selectedAnn && selectedAnn.type === "draw" ? (
@@ -1066,7 +1084,7 @@ export function PdfEditorTool() {
             <span className="font-semibold text-slate-700">Leave behind:</span>
             {(
               [
-                ["match", "Matching background"],
+                ["repair", "Smart background repair"],
                 ["white", "White"],
                 ["duplicate", "Nothing (copy)"],
               ] as const
@@ -1144,17 +1162,23 @@ export function PdfEditorTool() {
               const isEditing = editingId === t.id;
               const isSelected = selectedId === t.id;
               const showPatch = changed || isEditing;
+              const patchX = Math.max(0, t.origNormX - 0.003);
+              const patchY = Math.max(0, t.origNormY - 0.003);
+              const patchRight = Math.min(1, t.origNormX + t.origNormW + 0.003);
+              const patchBottom = Math.min(1, t.origNormY + t.origNormH + 0.003);
               return (
                 <React.Fragment key={t.id}>
                   {showPatch && (
                     <div
                       className="pointer-events-none absolute"
                       style={{
-                        left: `${(t.origNormX - 0.003) * 100}%`,
-                        top: `${(t.origNormY - 0.003) * 100}%`,
-                        width: `${(t.origNormW + 0.006) * 100}%`,
-                        height: `${(t.origNormH + 0.006) * 100}%`,
-                        background: t.bgColor ?? "#FFFFFF",
+                        left: `${patchX * 100}%`,
+                        top: `${patchY * 100}%`,
+                        width: `${Math.max(0, patchRight - patchX) * 100}%`,
+                        height: `${Math.max(0, patchBottom - patchY) * 100}%`,
+                        backgroundColor: t.bgColor ?? "#FFFFFF",
+                        backgroundImage: t.bgPatchDataUrl ? `url("${t.bgPatchDataUrl}")` : undefined,
+                        backgroundSize: "100% 100%",
                       }}
                     />
                   )}
@@ -1510,7 +1534,7 @@ function AnnotationView({
   let content: React.ReactNode = null;
   switch (ann.type) {
     case "whiteout":
-      content = <div className="h-full w-full" style={{ background: ann.color ?? "#FFFFFF" }} />;
+      content = <div className="h-full w-full" style={{ backgroundColor: ann.color ?? "#FFFFFF", backgroundImage: ann.dataUrl ? `url("${ann.dataUrl}")` : undefined, backgroundSize: "100% 100%" }} />;
       break;
     case "highlight":
       content = <div className="h-full w-full mix-blend-multiply" style={{ background: ann.color, opacity: ann.opacity ?? 0.35 }} />;
