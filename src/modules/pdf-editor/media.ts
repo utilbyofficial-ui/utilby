@@ -1,5 +1,7 @@
 "use client";
 
+import { MAX_IMAGE_PIXELS, readImageDimensions } from "@/modules/image-compressor/engine";
+
 /** Browser-only helpers for images and text rasterization used by the PDF editor. */
 
 export const FONT_CSS: Record<"Helvetica" | "Times" | "Courier", string> = {
@@ -73,7 +75,11 @@ function trimTransparent(canvas: HTMLCanvasElement): HTMLCanvasElement {
   const out = document.createElement("canvas");
   out.width = maxX - minX + 1;
   out.height = maxY - minY + 1;
-  out.getContext("2d")!.drawImage(canvas, minX, minY, out.width, out.height, 0, 0, out.width, out.height);
+  const outContext = out.getContext("2d");
+  if (!outContext) return canvas;
+  outContext.drawImage(canvas, minX, minY, out.width, out.height, 0, 0, out.width, out.height);
+  canvas.width = 0;
+  canvas.height = 0;
   return out;
 }
 
@@ -90,18 +96,30 @@ export interface LoadedImage {
  */
 export async function loadImageForPdf(source: Blob | string, opts: { trim?: boolean } = {}): Promise<LoadedImage> {
   const blob = typeof source === "string" ? await (await fetch(source)).blob() : source;
+  if (blob.size > 50 * 1024 * 1024) throw new Error("Image exceeds the 50 MB processing limit.");
+  const headerDimensions = await readImageDimensions(blob);
+  if (headerDimensions && headerDimensions.width * headerDimensions.height > MAX_IMAGE_PIXELS) {
+    throw new Error(`Image is larger than the ${MAX_IMAGE_PIXELS.toLocaleString()} pixel processing limit.`);
+  }
   const bitmap = await createImageBitmap(blob, { imageOrientation: "from-image" } as ImageBitmapOptions);
-  const MAX = 2400;
-  const s = Math.min(1, MAX / Math.max(bitmap.width, bitmap.height));
-  let canvas = document.createElement("canvas");
-  canvas.width = Math.max(1, Math.round(bitmap.width * s));
-  canvas.height = Math.max(1, Math.round(bitmap.height * s));
-  const ctx = canvas.getContext("2d")!;
-  ctx.imageSmoothingQuality = "high";
-  ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-  bitmap.close();
-  if (opts.trim) canvas = trimTransparent(canvas);
-  const isJpeg = blob.type === "image/jpeg" || blob.type === "image/jpg";
-  const dataUrl = isJpeg ? canvas.toDataURL("image/jpeg", 0.92) : canvas.toDataURL("image/png");
-  return { dataUrl, width: canvas.width, height: canvas.height };
+  let canvas: HTMLCanvasElement | null = null;
+  try {
+    if (bitmap.width * bitmap.height > 32_000_000) throw new Error("Image exceeds the 32 megapixel processing limit.");
+    const MAX = 2400;
+    const s = Math.min(1, MAX / Math.max(bitmap.width, bitmap.height));
+    canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(bitmap.width * s));
+    canvas.height = Math.max(1, Math.round(bitmap.height * s));
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Canvas is not supported in this browser.");
+    ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    if (opts.trim) canvas = trimTransparent(canvas);
+    const isJpeg = blob.type === "image/jpeg" || blob.type === "image/jpg";
+    const dataUrl = isJpeg ? canvas.toDataURL("image/jpeg", 0.92) : canvas.toDataURL("image/png");
+    return { dataUrl, width: canvas.width, height: canvas.height };
+  } finally {
+    bitmap.close();
+    if (canvas) { canvas.width = 0; canvas.height = 0; }
+  }
 }

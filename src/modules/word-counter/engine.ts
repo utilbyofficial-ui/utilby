@@ -9,7 +9,10 @@ export interface WordStats {
   readingTimeFormatted: string;
   speakingTimeFormatted: string;
   topKeywords: { word: string; count: number; percentage: number }[];
+  inputTooLarge: boolean;
 }
+
+export const MAX_TEXT_ANALYSIS_CHARACTERS = 1_000_000;
 
 export const COMMON_STOP_WORDS = new Set([
   "the", "and", "a", "an", "in", "to", "of", "for", "with", "at", "by", "from", "up",
@@ -32,12 +35,14 @@ export function formatTimeEstimate(words: number, wpm: number): string {
 
 export function analyzeText(text: string, options: { filterStopWords?: boolean } = {}): WordStats {
   const filterStopWords = options.filterStopWords ?? false;
+  const inputTooLarge = text.length > MAX_TEXT_ANALYSIS_CHARACTERS;
+  const analysisText = inputTooLarge ? text.slice(0, MAX_TEXT_ANALYSIS_CHARACTERS) : text;
 
-  if (!text || text.trim() === "") {
+  if (!analysisText || analysisText.trim() === "") {
     return {
       words: 0,
-      characters: 0,
-      charactersNoSpaces: 0,
+      characters: text.length,
+      charactersNoSpaces: text.replace(/\s/g, "").length,
       sentences: 0,
       paragraphs: 0,
       readingTimeMinutes: 0,
@@ -45,28 +50,26 @@ export function analyzeText(text: string, options: { filterStopWords?: boolean }
       readingTimeFormatted: "0 sec",
       speakingTimeFormatted: "0 sec",
       topKeywords: [],
+      inputTooLarge,
     };
   }
 
   const characters = text.length;
   const charactersNoSpaces = text.replace(/\s/g, "").length;
 
-  // Words matching (matches sequences of unicode letters/numbers, including hyphenated words)
-  const wordsArray = text
-    .trim()
-    .split(/[\s\u2000-\u206F\u2E00-\u2E7F\\'!"#$%&()*+,\-./:;<=>?@\[\]^_`{|}~]+/u)
-    .filter((w) => w.length > 0);
+  // Unicode-aware tokens with internal apostrophes and hyphens treated as one word.
+  const wordsArray = analysisText.match(/[\p{L}\p{M}\p{N}]+(?:['’\-][\p{L}\p{M}\p{N}]+)*/gu) ?? [];
   const words = wordsArray.length;
 
   // Sentences: match ending punctuation followed by space or end of text
-  const rawSentences = text
+  const rawSentences = analysisText
     .split(/[.!?]+(?=\s|$)/g)
     .map((s) => s.trim())
     .filter((s) => s.length > 0);
   const sentences = rawSentences.length;
 
   // Paragraphs: non-empty chunks separated by one or more newlines
-  const paragraphs = text
+  const paragraphs = analysisText
     .split(/\n+/)
     .map((p) => p.trim())
     .filter((p) => p.length > 0).length;
@@ -80,18 +83,18 @@ export function analyzeText(text: string, options: { filterStopWords?: boolean }
   const speakingTimeFormatted = formatTimeEstimate(words, 130);
 
   // Keyword density
-  const wordFrequency: Record<string, number> = {};
+  const wordFrequency = new Map<string, number>();
   for (const rawWord of wordsArray) {
     const word = rawWord.toLowerCase();
     if (word.length > 2) {
       if (filterStopWords && COMMON_STOP_WORDS.has(word)) {
         continue;
       }
-      wordFrequency[word] = (wordFrequency[word] || 0) + 1;
+      wordFrequency.set(word, (wordFrequency.get(word) ?? 0) + 1);
     }
   }
 
-  const sortedKeywords = Object.entries(wordFrequency)
+  const sortedKeywords = Array.from(wordFrequency.entries())
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5)
     .map(([word, count]) => ({
@@ -111,5 +114,6 @@ export function analyzeText(text: string, options: { filterStopWords?: boolean }
     readingTimeFormatted,
     speakingTimeFormatted,
     topKeywords: sortedKeywords,
+    inputTooLarge,
   };
 }

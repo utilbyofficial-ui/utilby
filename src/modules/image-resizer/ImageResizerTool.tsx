@@ -15,7 +15,7 @@ import {
   resizeImage,
   MAX_DIMENSION,
 } from "./engine";
-import { formatBytes, dedupeFilenames, isSupportedImage, MAX_FILE_BYTES, OutputFormat } from "@/modules/image-compressor/engine";
+import { formatBytes, dedupeFilenames, isSupportedImage, MAX_FILE_BYTES, MAX_BATCH_FILES, MAX_BATCH_BYTES, OutputFormat } from "@/modules/image-compressor/engine";
 import { Button } from "@/components/ui/Button";
 import {
   UploadCloud,
@@ -146,9 +146,9 @@ export function ImageResizerTool() {
             height: res.height,
             outputName: buildResizedFilename(next.file.name, res.width, res.height, res.outputMime),
           });
-        } catch {
+        } catch (error) {
           if (!itemsRef.current.some((it) => it.id === next.id) || generation !== generationRef.current) continue;
-          patchItem(next.id, { status: "error", error: "This image could not be read or is too large to resize." });
+          patchItem(next.id, { status: "error", error: error instanceof Error ? error.message : "This image could not be processed. It may be damaged or unsupported." });
         }
       }
     } finally {
@@ -189,6 +189,9 @@ export function ImageResizerTool() {
     const accepted: Item[] = [];
     let rejected = 0;
     let tooBig = 0;
+    let overCapacity = 0;
+    let acceptedBytes = 0;
+    const currentBytes = itemsRef.current.reduce((sum, item) => sum + item.file.size, 0);
     for (const file of Array.from(fileList)) {
       if (!isSupportedImage(file.type)) {
         rejected++;
@@ -198,11 +201,17 @@ export function ImageResizerTool() {
         tooBig++;
         continue;
       }
+      if (itemsRef.current.length + accepted.length >= MAX_BATCH_FILES || currentBytes + acceptedBytes + file.size > MAX_BATCH_BYTES) {
+        overCapacity++;
+        continue;
+      }
+      acceptedBytes += file.size;
       accepted.push({ id: newId(), file, originalUrl: URL.createObjectURL(file), status: "pending" });
     }
     const msgs: string[] = [];
     if (rejected) msgs.push(`${rejected} file(s) skipped — only JPG, PNG, WebP, GIF and BMP are supported.`);
     if (tooBig) msgs.push(`${tooBig} file(s) skipped — larger than ${formatBytes(MAX_FILE_BYTES)}.`);
+    if (overCapacity) msgs.push(`${overCapacity} file(s) skipped — a batch is limited to ${MAX_BATCH_FILES} images and ${formatBytes(MAX_BATCH_BYTES)} total input.`);
     setNotice(msgs.join(" "));
     if (!accepted.length) return;
     commit([...itemsRef.current, ...accepted]);
@@ -257,15 +266,24 @@ export function ImageResizerTool() {
 
   const downloadZip = async () => {
     if (!doneItems.length) return;
-    const names = dedupeFilenames(doneItems.map((it) => it.outputName ?? it.file.name));
-    const entries: Record<string, Uint8Array> = {};
-    for (let i = 0; i < doneItems.length; i++) {
-      entries[names[i]] = new Uint8Array(await doneItems[i].resultBlob!.arrayBuffer());
+    const outputBytes = doneItems.reduce((sum, it) => sum + (it.resultBlob?.size ?? 0), 0);
+    if (outputBytes > MAX_BATCH_BYTES) {
+      setNotice(`ZIP download is limited to ${formatBytes(MAX_BATCH_BYTES)} of output. Download images individually or clear the batch.`);
+      return;
     }
-    const blob = new Blob([zipSync(entries, { level: 0 }) as BlobPart], { type: "application/zip" });
-    const url = URL.createObjectURL(blob);
-    triggerDownload(url, "utilby-resized-images.zip");
-    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    const names = dedupeFilenames(doneItems.map((it) => it.outputName ?? it.file.name));
+    try {
+      const entries: Record<string, Uint8Array> = {};
+      for (let i = 0; i < doneItems.length; i++) {
+        entries[names[i]] = new Uint8Array(await doneItems[i].resultBlob!.arrayBuffer());
+      }
+      const blob = new Blob([zipSync(entries, { level: 0 }) as BlobPart], { type: "application/zip" });
+      const url = URL.createObjectURL(blob);
+      triggerDownload(url, "utilby-resized-images.zip");
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+    } catch {
+      setNotice("The ZIP could not be created. Download the processed images individually and try a smaller batch.");
+    }
   };
 
   const presetGroups = Array.from(new Set(RESIZE_PRESETS.map((p) => p.group)));
@@ -307,7 +325,7 @@ export function ImageResizerTool() {
         <p className="text-sm font-semibold text-slate-900">
           {items.length ? "Add more images" : "Drop images here or click to browse"}
         </p>
-        <p className="mt-1 text-xs text-slate-500">JPG, PNG, WebP, GIF, BMP • Up to 50 MB each • Batch resize supported</p>
+        <p className="mt-1 text-xs text-slate-500">JPG, PNG, WebP, GIF, BMP • Up to 50 MB each • 20 files / 100 MB per batch</p>
         <input
           ref={inputRef}
           type="file"

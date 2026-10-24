@@ -11,7 +11,6 @@ import {
   cleanBaseName,
   buildPageFilename,
   buildZipFilename,
-  parsePageRanges,
 } from "./engine";
 import { formatBytes } from "@/modules/image-compressor/engine";
 import { Button } from "@/components/ui/Button";
@@ -29,7 +28,13 @@ import {
   Square,
   ShieldCheck,
   Zap,
+  AlertTriangle,
 } from "lucide-react";
+
+const MAX_PDF_BYTES = 100 * 1024 * 1024;
+const MAX_PDF_PAGES = 250;
+const MAX_RENDER_PIXELS = 32_000_000;
+const MAX_ZIP_BYTES = 100 * 1024 * 1024;
 
 const DPI_OPTIONS: { id: DpiOption; label: string; desc: string }[] = [
   { id: "72", label: "Standard", desc: "72 DPI • Fast & small" },
@@ -60,38 +65,69 @@ export function PdfToJpgTool() {
   const [isProcessing, setIsProcessing] = React.useState(false);
   const [currentProgress, setCurrentProgress] = React.useState({ current: 0, total: 0 });
   const [doneMessage, setDoneMessage] = React.useState<string>("");
+  const [errorMessage, setErrorMessage] = React.useState<string>("");
   const [loadingPdf, setLoadingPdf] = React.useState(false);
 
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const isMounted = React.useRef(true);
+  const loadGeneration = React.useRef(0);
+  const docRef = React.useRef<PDFDocumentProxy | null>(null);
+  const thumbUrls = React.useRef<Record<number, string>>({});
 
   React.useEffect(() => {
     isMounted.current = true;
     return () => {
       isMounted.current = false;
-      Object.values(pageThumbs).forEach((u) => URL.revokeObjectURL(u));
+      loadGeneration.current++;
+      Object.values(thumbUrls.current).forEach((u) => URL.revokeObjectURL(u));
+      thumbUrls.current = {};
+      void docRef.current?.destroy().catch(() => undefined);
+      docRef.current = null;
     };
-  }, [pageThumbs]);
+  }, []);
 
   const loadPdfFile = async (selectedFile: File) => {
     if (!selectedFile.type.includes("pdf") && !selectedFile.name.toLowerCase().endsWith(".pdf")) {
-      alert("Please upload a valid PDF document.");
+      setErrorMessage("Please upload a valid PDF document.");
+      return;
+    }
+    if (selectedFile.size > MAX_PDF_BYTES) {
+      setErrorMessage(`This PDF is larger than the ${formatBytes(MAX_PDF_BYTES)} processing limit.`);
       return;
     }
 
+    const generation = ++loadGeneration.current;
+    Object.values(thumbUrls.current).forEach((u) => URL.revokeObjectURL(u));
+    thumbUrls.current = {};
+    void docRef.current?.destroy().catch(() => undefined);
+    docRef.current = null;
     setLoadingPdf(true);
     setFile(selectedFile);
+    setDoc(null);
+    setTotalPages(0);
+    setSelectedPages(new Set());
     setPageThumbs({});
     setDoneMessage("");
+    setErrorMessage("");
 
     try {
       const buffer = await selectedFile.arrayBuffer();
+      if (generation !== loadGeneration.current) return;
       const pdfjs = await getPdfjs();
       const loadedDoc = await pdfjs.getDocument({
         data: new Uint8Array(buffer),
         isEvalSupported: false,
       }).promise;
+      if (generation !== loadGeneration.current) {
+        await loadedDoc.destroy();
+        return;
+      }
 
+      if (loadedDoc.numPages > MAX_PDF_PAGES) {
+        await loadedDoc.destroy();
+        throw new Error(`This tool supports up to ${MAX_PDF_PAGES} pages per PDF. Split the document first.`);
+      }
+      docRef.current = loadedDoc;
       setDoc(loadedDoc);
       const count = loadedDoc.numPages;
       setTotalPages(count);
@@ -101,31 +137,43 @@ export function PdfToJpgTool() {
       const thumbs: Record<number, string> = {};
       for (let p = 1; p <= count; p++) {
         const page = await loadedDoc.getPage(p);
-        const viewport = page.getViewport({ scale: 0.35 });
+        const base = page.getViewport({ scale: 1 });
+        const thumbScale = Math.min(0.35, Math.sqrt(2_000_000) / Math.sqrt(base.width) / Math.sqrt(base.height), 4096 / base.width, 4096 / base.height);
+        if (!Number.isFinite(thumbScale) || thumbScale <= 0) throw new Error("A page is too large to preview safely.");
+        const viewport = page.getViewport({ scale: thumbScale });
+        if (generation !== loadGeneration.current) break;
         const canvas = document.createElement("canvas");
-        canvas.width = Math.ceil(viewport.width);
-        canvas.height = Math.ceil(viewport.height);
-        const ctx = canvas.getContext("2d")!;
-        ctx.fillStyle = "#ffffff";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        await page.render({ canvasContext: ctx, viewport }).promise;
-        page.cleanup();
-
-        const blob: Blob = await new Promise((res) => canvas.toBlob((b) => res(b!), "image/jpeg", 0.75));
-        thumbs[p] = URL.createObjectURL(blob);
-        canvas.width = 0;
-        canvas.height = 0;
-        if (isMounted.current) {
-          setPageThumbs({ ...thumbs });
+        try {
+          canvas.width = Math.ceil(viewport.width);
+          canvas.height = Math.ceil(viewport.height);
+          const ctx = canvas.getContext("2d");
+          if (!ctx) throw new Error("Canvas is not supported in this browser.");
+          ctx.fillStyle = "#ffffff";
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          await page.render({ canvasContext: ctx, viewport }).promise;
+          if (generation !== loadGeneration.current) break;
+          const blob: Blob = await new Promise((resolve, reject) => canvas.toBlob((b) => b ? resolve(b) : reject(new Error("Thumbnail encoding failed.")), "image/jpeg", 0.75));
+          const url = URL.createObjectURL(blob);
+          thumbs[p] = url;
+          thumbUrls.current[p] = url;
+          if (generation === loadGeneration.current && isMounted.current) setPageThumbs({ ...thumbs });
+        } finally {
+          page.cleanup();
+          canvas.width = 0;
+          canvas.height = 0;
         }
       }
     } catch (err) {
       console.error("Error reading PDF:", err);
-      alert("Could not load this PDF. The file may be password protected or corrupted.");
-      setFile(null);
-      setDoc(null);
+      if (generation === loadGeneration.current) {
+        setErrorMessage(err instanceof Error && err.message.startsWith("This tool supports") ? err.message : "Could not load this PDF. It may be password protected, damaged, or unsupported.");
+        setFile(null);
+        setDoc(null);
+        if (docRef.current) void docRef.current.destroy().catch(() => undefined);
+        docRef.current = null;
+      }
     } finally {
-      setLoadingPdf(false);
+      if (generation === loadGeneration.current) setLoadingPdf(false);
     }
   };
 
@@ -162,26 +210,35 @@ export function PdfToJpgTool() {
     const page = await doc.getPage(pageNum);
     const scale = getDpiScale(dpi);
     const viewport = page.getViewport({ scale });
+    if (!Number.isFinite(viewport.width) || !Number.isFinite(viewport.height) || viewport.width <= 0 || viewport.height <= 0) {
+      page.cleanup();
+      throw new Error("This PDF page has unsupported dimensions.");
+    }
+    const width = Math.ceil(viewport.width);
+    const height = Math.ceil(viewport.height);
+    if (width * height > MAX_RENDER_PIXELS) {
+      page.cleanup();
+      throw new Error(`This page exceeds the ${formatBytes(MAX_RENDER_PIXELS * 4)} render memory budget at the selected DPI. Choose a lower DPI.`);
+    }
     const canvas = document.createElement("canvas");
-    canvas.width = Math.ceil(viewport.width);
-    canvas.height = Math.ceil(viewport.height);
-    const ctx = canvas.getContext("2d")!;
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    await page.render({ canvasContext: ctx, viewport }).promise;
-    page.cleanup();
-
-    const mime = format === "jpg" ? "image/jpeg" : "image/png";
-    const q = format === "jpg" ? quality / 100 : undefined;
-
-    const blob: Blob = await new Promise((resolve, reject) => {
-      canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("Render failed"))), mime, q);
-    });
-
-    canvas.width = 0;
-    canvas.height = 0;
-    return blob;
+    try {
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw new Error("Canvas is not supported in this browser.");
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      await page.render({ canvasContext: ctx, viewport }).promise;
+      const mime = format === "jpg" ? "image/jpeg" : "image/png";
+      const q = format === "jpg" ? quality / 100 : undefined;
+      return await new Promise((resolve, reject) => {
+        canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("Page image encoding failed."))), mime, q);
+      });
+    } finally {
+      page.cleanup();
+      canvas.width = 0;
+      canvas.height = 0;
+    }
   };
 
   /** Single page direct download */
@@ -193,6 +250,7 @@ export function PdfToJpgTool() {
       triggerDownload(blob, filename);
     } catch (err) {
       console.error("Single page render error:", err);
+      setErrorMessage(err instanceof Error ? err.message : "This page could not be converted. Choose a lower DPI and try again.");
     }
   };
 
@@ -218,11 +276,14 @@ export function PdfToJpgTool() {
       }
 
       const zipEntries: Record<string, Uint8Array> = {};
+      let totalOutputBytes = 0;
 
       for (let i = 0; i < pagesToConvert.length; i++) {
         const pageNum = pagesToConvert[i]!;
         setCurrentProgress({ current: i + 1, total: pagesToConvert.length });
         const blob = await renderPageToBlob(pageNum);
+        totalOutputBytes += blob.size;
+        if (totalOutputBytes > MAX_ZIP_BYTES) throw new Error(`ZIP output exceeded the ${formatBytes(MAX_ZIP_BYTES)} memory-safe batch limit. Select fewer pages.`);
         const buffer = await blob.arrayBuffer();
         const filename = buildPageFilename(file.name, pageNum, totalPages, format);
         zipEntries[filename] = new Uint8Array(buffer);
@@ -239,7 +300,7 @@ export function PdfToJpgTool() {
       );
     } catch (err) {
       console.error("Batch conversion error:", err);
-      alert("An error occurred during conversion. Please try again.");
+      setErrorMessage(err instanceof Error ? err.message : "An error occurred during conversion. Please try a smaller selection.");
     } finally {
       setIsProcessing(false);
     }
@@ -247,6 +308,12 @@ export function PdfToJpgTool() {
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      {errorMessage && (
+        <div role="alert" className="mb-4 flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800 dark:border-rose-800 dark:bg-rose-950/30 dark:text-rose-200">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>{errorMessage}</span>
+        </div>
+      )}
       {/* Upload Dropzone */}
       {!file ? (
         <div
@@ -260,7 +327,10 @@ export function PdfToJpgTool() {
             type="file"
             accept="application/pdf,.pdf"
             className="hidden"
-            onChange={(e) => e.target.files?.[0] && loadPdfFile(e.target.files[0])}
+            onChange={(e) => {
+              if (e.target.files?.[0]) void loadPdfFile(e.target.files[0]);
+              e.target.value = "";
+            }}
           />
           <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white shadow-soft transition-transform group-hover:scale-105 dark:bg-slate-800">
             {loadingPdf ? (
@@ -273,7 +343,7 @@ export function PdfToJpgTool() {
             {loadingPdf ? "Opening PDF..." : "Drop your PDF here, or browse"}
           </h3>
           <p className="mt-1.5 text-xs sm:text-sm text-slate-500 max-w-sm">
-            Convert all pages or selected pages to high-resolution JPG or PNG images.
+            Convert all pages or selected pages to high-resolution JPG or PNG images. PDFs up to 100 MB and 250 pages.
           </p>
           <div className="mt-4 flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800">
             <ShieldCheck className="h-3.5 w-3.5" />

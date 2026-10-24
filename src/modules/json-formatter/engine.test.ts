@@ -37,6 +37,11 @@ describe("JSON Formatter & Validator Engine", () => {
     expect(parsed.tags.length).toBe(2);
   });
 
+  it("preserves URL slashes and quoted punctuation while repairing comments", () => {
+    const fixed = repairCommonJsonMistakes(`{'url': 'https://example.com/a//b', 'text': 'comma,}', // comment\n}`);
+    expect(JSON.parse(fixed)).toEqual({ url: "https://example.com/a//b", text: "comma,}" });
+  });
+
   it("should analyze JSON structure statistics", () => {
     const sample = JSON.stringify({ a: 1, b: { c: [1, 2] } });
     const stats = analyzeJsonStructure(sample);
@@ -49,5 +54,19 @@ describe("JSON Formatter & Validator Engine", () => {
     const result = validateAndFormatJson("");
     expect(result.isValid).toBe(true);
     expect(result.output).toBe("");
+  });
+
+  it("analyzes deeply nested JSON without recursive stack overflow", () => {
+    const input = `${"[".repeat(1500)}0${"]".repeat(1500)}`;
+    const stats = analyzeJsonStructure(input);
+    expect(stats.type).toBe("array");
+    expect(stats.maxDepth).toBe(1501);
+  });
+
+  it("rejects JSON over the browser processing limit", async () => {
+    const { MAX_JSON_BYTES } = await import("./engine");
+    const result = validateAndFormatJson(" ".repeat(MAX_JSON_BYTES + 1));
+    expect(result.isValid).toBe(false);
+    expect(result.error?.message).toContain("5 MB");
   });
 });

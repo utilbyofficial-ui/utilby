@@ -13,15 +13,17 @@ import {
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { getImageDimensionsFromBytes } from "@/modules/image-compressor/engine";
 import {
   COMPRESSION_PRESETS,
   CompressionPreset,
   CompressionProgress,
   compressPdf,
   PdfCompressionResult,
+  MAX_PDF_BYTES,
 } from "./engine";
 
-const MAX_FILE_BYTES = 200 * 1024 * 1024;
+const MAX_FILE_BYTES = MAX_PDF_BYTES;
 const selectClass = "h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-900 focus:border-ink focus:outline-none focus:ring-2 focus:ring-ink/15";
 
 function formatBytes(bytes: number): string {
@@ -48,14 +50,17 @@ async function reencodeJpegImage({ bytes, width, height, maxDimension, quality }
   maxDimension: number;
   quality: number;
 }): Promise<{ bytes: Uint8Array; width: number; height: number } | null> {
+  const headerDimensions = getImageDimensionsFromBytes(bytes);
+  if (headerDimensions && headerDimensions.width * headerDimensions.height > 32_000_000) return null;
   let bitmap: ImageBitmap | null = null;
   const canvas = document.createElement("canvas");
   try {
     const data = new Uint8Array(bytes);
     bitmap = await createImageBitmap(new Blob([data.buffer as ArrayBuffer], { type: "image/jpeg" }));
-    const scale = Math.min(1, maxDimension / Math.max(width, height));
-    const outputWidth = Math.max(1, Math.round(width * scale));
-    const outputHeight = Math.max(1, Math.round(height * scale));
+    if (!bitmap.width || !bitmap.height || bitmap.width * bitmap.height > 32_000_000) return null;
+    const scale = Math.min(1, maxDimension / Math.max(bitmap.width, bitmap.height));
+    const outputWidth = Math.max(1, Math.round(bitmap.width * scale));
+    const outputHeight = Math.max(1, Math.round(bitmap.height * scale));
     canvas.width = outputWidth;
     canvas.height = outputHeight;
     const context = canvas.getContext("2d", { alpha: false });
@@ -159,7 +164,7 @@ export function PdfCompressorTool() {
     }
     if (nextFile.size > MAX_FILE_BYTES) {
       setFile(null);
-      setError("This file is larger than 200 MB. Choose a smaller PDF to continue.");
+      setError(`This file is larger than ${formatBytes(MAX_FILE_BYTES)}. Choose a smaller PDF to continue.`);
       return;
     }
     setFile(nextFile);
@@ -222,7 +227,7 @@ export function PdfCompressorTool() {
           </span>
           <h2 className="mt-4 font-display text-xl font-bold text-ink">Drop a PDF here</h2>
           <p className="mt-1 text-sm text-slate-600">or click to browse from your device</p>
-          <span className="mt-4 rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-600 shadow-sm">PDF files up to 200 MB</span>
+          <span className="mt-4 rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-600 shadow-sm">PDF files up to 100 MB</span>
         </div>
       ) : (
         <>

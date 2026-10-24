@@ -38,4 +38,18 @@ describe("Word Counter Engine", () => {
     expect(stats.readingTimeMinutes).toBe(2); // 400 / 200 = 2
     expect(stats.speakingTimeMinutes).toBe(4); // 400 / 130 = 3.07 -> ceil 4
   });
+
+  it("counts Unicode words and prototype-named keywords safely", () => {
+    const stats = analyzeText("café naïve constructor constructor বাংলা বাংলা");
+    expect(stats.words).toBe(6);
+    expect(stats.topKeywords.find((item) => item.word === "constructor")?.count).toBe(2);
+  });
+
+  it("caps analysis work while preserving the full character count", () => {
+    const text = "word ".repeat(250_001);
+    const stats = analyzeText(text);
+    expect(stats.inputTooLarge).toBe(true);
+    expect(stats.characters).toBe(text.length);
+    expect(stats.words).toBeLessThan(250_001);
+  });
 });

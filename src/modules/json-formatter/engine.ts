@@ -15,6 +15,28 @@ export interface JsonStats {
   type: "object" | "array" | "primitive" | "empty";
 }
 
+export const MAX_JSON_BYTES = 5 * 1024 * 1024;
+
+function utf8ByteLength(input: string, limit = Number.POSITIVE_INFINITY): number {
+  let bytes = 0;
+  for (let i = 0; i < input.length; i++) {
+    const code = input.charCodeAt(i);
+    if (code < 0x80) bytes++;
+    else if (code < 0x800) bytes += 2;
+    else if (code >= 0xd800 && code <= 0xdbff && i + 1 < input.length) {
+      const next = input.charCodeAt(i + 1);
+      if (next >= 0xdc00 && next <= 0xdfff) { bytes += 4; i++; }
+      else bytes += 3;
+    } else bytes += 3;
+    if (bytes > limit) return limit + 1;
+  }
+  return bytes;
+}
+
+function exceedsJsonLimit(input: string): boolean {
+  return utf8ByteLength(input, MAX_JSON_BYTES) > MAX_JSON_BYTES;
+}
+
 export function parseJsonError(errorMessage: string, input: string): { line?: number; column?: number } {
   // Typical modern V8 error format: "Unexpected token 'x', ... at position 42"
   const positionMatch = errorMessage.match(/at position (\d+)/i);
@@ -40,6 +62,9 @@ export function parseJsonError(errorMessage: string, input: string): { line?: nu
 }
 
 export function validateAndFormatJson(input: string, indent: number | string = 2): JsonValidationResult {
+  if (exceedsJsonLimit(input)) {
+    return { isValid: false, error: { message: "JSON input exceeds the 5 MB processing limit." } };
+  }
   const trimmed = input.trim();
   if (!trimmed) {
     return { isValid: true, output: "" };
@@ -69,6 +94,9 @@ export function validateAndFormatJson(input: string, indent: number | string = 2
 }
 
 export function minifyJson(input: string): JsonValidationResult {
+  if (exceedsJsonLimit(input)) {
+    return { isValid: false, error: { message: "JSON input exceeds the 5 MB processing limit." } };
+  }
   const trimmed = input.trim();
   if (!trimmed) {
     return { isValid: true, output: "" };
@@ -97,20 +125,82 @@ export function minifyJson(input: string): JsonValidationResult {
 }
 
 export function repairCommonJsonMistakes(input: string): string {
-  let repaired = input.trim();
-  // Remove single line comments
-  repaired = repaired.replace(/\/\/.*$/gm, "");
-  // Replace single-quoted property keys: 'key': -> "key":
-  repaired = repaired.replace(/'([a-zA-Z0-9_$]+)'\s*:/g, '"$1":');
-  // Replace single-quoted values: : 'value' -> : "value"
-  repaired = repaired.replace(/:\s*'([^']*)'/g, ': "$1"');
-  // Remove trailing commas in objects and arrays: , } -> } and , ] -> ]
-  repaired = repaired.replace(/,\s*([}\]])/g, "$1");
+  if (exceedsJsonLimit(input)) return input;
+  const trimmed = input.trim();
+  if (!trimmed) return trimmed;
+  try {
+    JSON.parse(trimmed);
+    return trimmed;
+  } catch {
+    // Repair only common syntax issues below.
+  }
+
+  // Strip comments only outside strings, so URLs and text like "//" survive.
+  let source = "";
+  let quote: '"' | "'" | null = null;
+  let escaped = false;
+  for (let i = 0; i < trimmed.length; i++) {
+    const char = trimmed[i]!;
+    if (quote) {
+      source += char;
+      if (escaped) escaped = false;
+      else if (char === "\\") escaped = true;
+      else if (char === quote) quote = null;
+    } else if (char === '"' || char === "'") {
+      quote = char;
+      source += char;
+    } else if (char === "/" && trimmed[i + 1] === "/") {
+      while (i < trimmed.length && trimmed[i] !== "\n") i++;
+      if (i < trimmed.length) source += "\n";
+    } else if (char === "/" && trimmed[i + 1] === "*") {
+      i += 2;
+      while (i < trimmed.length && !(trimmed[i] === "*" && trimmed[i + 1] === "/")) {
+        if (trimmed[i] === "\n") source += "\n";
+        i++;
+      }
+      if (i < trimmed.length) i++;
+    } else source += char;
+  }
+
+  let repaired = "";
+  quote = null;
+  escaped = false;
+  for (let i = 0; i < source.length; i++) {
+    const char = source[i]!;
+    if (quote === '"') {
+      repaired += char;
+      if (escaped) escaped = false;
+      else if (char === "\\") escaped = true;
+      else if (char === '"') quote = null;
+    } else if (quote === "'") {
+      if (escaped) {
+        const replacements: Record<string, string> = { "'": "'", '"': '\\"', "\\": "\\\\", n: "\\n", r: "\\r", t: "\\t" };
+        repaired += replacements[char] ?? `\\${char}`;
+        escaped = false;
+      } else if (char === "\\") escaped = true;
+      else if (char === "'") {
+        repaired += '"';
+        quote = null;
+      } else if (char === '"') repaired += '\\"';
+      else if (char === "\n") repaired += "\\n";
+      else if (char === "\r") repaired += "\\r";
+      else repaired += char;
+    } else if (char === '"' || char === "'") {
+      quote = char;
+      repaired += char === "'" ? '"' : char;
+    } else if (char === ",") {
+      let next = i + 1;
+      while (/\s/.test(source[next] ?? "")) next++;
+      if (source[next] !== "}" && source[next] !== "]") repaired += char;
+    } else repaired += char;
+  }
+  if (quote === "'") repaired += '"';
   return repaired;
 }
 
 export function analyzeJsonStructure(input: string): JsonStats {
-  const sizeBytes = new TextEncoder().encode(input).length;
+  const sizeBytes = utf8ByteLength(input, MAX_JSON_BYTES);
+  if (sizeBytes > MAX_JSON_BYTES) return { sizeBytes, keyCount: 0, maxDepth: 0, type: "empty" };
   const trimmed = input.trim();
   if (!trimmed) {
     return { sizeBytes: 0, keyCount: 0, maxDepth: 0, type: "empty" };
@@ -121,24 +211,20 @@ export function analyzeJsonStructure(input: string): JsonStats {
     let keyCount = 0;
     let maxDepth = 0;
 
-    function traverse(val: unknown, currentDepth: number) {
-      if (currentDepth > maxDepth) maxDepth = currentDepth;
-      if (val && typeof val === "object") {
-        if (Array.isArray(val)) {
-          for (const item of val) {
-            traverse(item, currentDepth + 1);
-          }
-        } else {
-          const keys = Object.keys(val as Record<string, unknown>);
-          keyCount += keys.length;
-          for (const k of keys) {
-            traverse((val as Record<string, unknown>)[k], currentDepth + 1);
-          }
-        }
+    const stack: Array<{ value: unknown; depth: number }> = [{ value: parsed, depth: 1 }];
+    while (stack.length) {
+      const { value, depth } = stack.pop()!;
+      maxDepth = Math.max(maxDepth, depth);
+      if (!value || typeof value !== "object") continue;
+      if (Array.isArray(value)) {
+        for (const item of value) stack.push({ value: item, depth: depth + 1 });
+      } else {
+        const record = value as Record<string, unknown>;
+        const keys = Object.keys(record);
+        keyCount += keys.length;
+        for (const key of keys) stack.push({ value: record[key], depth: depth + 1 });
       }
     }
-
-    traverse(parsed, 1);
 
     const type = Array.isArray(parsed) ? "array" : typeof parsed === "object" && parsed !== null ? "object" : "primitive";
 

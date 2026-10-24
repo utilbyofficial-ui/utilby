@@ -46,6 +46,11 @@ describe("Text Case Converter Engine", () => {
     expect(toConstantCase("hello world from utilby")).toBe("HELLO_WORLD_FROM_UTILBY");
   });
 
+  it("handles accented letters in word-based conversions", () => {
+    expect(toSnakeCase("Café déjà Vu")).toBe("café_déjà_vu");
+    expect(toTitleCase("élan vital")).toBe("Élan Vital");
+  });
+
   it("inverts text case", () => {
     expect(toInvertCase("Hello World!")).toBe("hELLO wORLD!");
   });

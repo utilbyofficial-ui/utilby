@@ -43,5 +43,8 @@ describe("PDF to JPG Engine", () => {
     expect(parsePageRanges("1-15", 5)).toEqual([1, 2, 3, 4, 5]);
     // Empty range defaults to all pages
     expect(parsePageRanges("", 3)).toEqual([1, 2, 3]);
+    // Malformed ranges must not silently fall back to converting every page.
+    expect(parsePageRanges("1-x", 3)).toEqual([]);
+    expect(parsePageRanges("2, nope", 3)).toEqual([]);
   });
 });

@@ -153,21 +153,19 @@ export function PercentageCalculatorTool() {
             </div>
 
             <div className="rounded-xl bg-slate-50 p-6 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
-              <div className="flex items-center justify-between">
-                <div>
-                  <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                    Calculated Result
-                  </span>
-                  <div className="text-3xl font-black text-ink dark:text-white mt-1">
-                    {c1Result.result.toLocaleString()}
+              {"error" in c1Result ? (
+                <div className="text-sm font-semibold text-rose-600">{c1Result.error}</div>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Calculated Result</span>
+                      <div className="text-3xl font-black text-ink dark:text-white mt-1">{c1Result.result.toLocaleString()}</div>
+                    </div>
+                    <CopyButton textToCopy={c1Result.result.toString()} />
                   </div>
-                </div>
-                <CopyButton textToCopy={c1Result.result.toString()} />
-              </div>
-              {c1Result.formula && (
-                <div className="mt-4 pt-3 border-t border-slate-200/60 dark:border-slate-700/60 text-xs font-mono text-slate-500">
-                  Formula: {c1Result.formula}
-                </div>
+                  {c1Result.formula && <div className="mt-4 pt-3 border-t border-slate-200/60 dark:border-slate-700/60 text-xs font-mono text-slate-500">Formula: {c1Result.formula}</div>}
+                </>
               )}
             </div>
           </div>
@@ -358,28 +356,22 @@ export function PercentageCalculatorTool() {
             </div>
 
             <div className="rounded-xl bg-slate-50 p-6 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-800">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                    Final Discounted Price
-                  </span>
-                  <div className="text-3xl font-black text-emerald-600 dark:text-emerald-400 mt-1">
-                    ${c4Result.finalPrice}
+              {"error" in c4Result ? (
+                <div className="text-sm font-semibold text-rose-600">{c4Result.error}</div>
+              ) : (
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Final Discounted Price</span>
+                      <div className="text-3xl font-black text-emerald-600 dark:text-emerald-400 mt-1">${c4Result.finalPrice}</div>
+                    </div>
+                    <div>
+                      <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">You Save</span>
+                      <div className="text-3xl font-black text-ink dark:text-white mt-1">${c4Result.discountAmount}</div>
+                    </div>
                   </div>
-                </div>
-                <div>
-                  <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                    You Save
-                  </span>
-                  <div className="text-3xl font-black text-ink dark:text-white mt-1">
-                    ${c4Result.discountAmount}
-                  </div>
-                </div>
-              </div>
-              {c4Result.savingsFormula && (
-                <div className="mt-4 pt-3 border-t border-slate-200/60 dark:border-slate-700/60 text-xs font-mono text-slate-500">
-                  {c4Result.savingsFormula}
-                </div>
+                  {c4Result.savingsFormula && <div className="mt-4 pt-3 border-t border-slate-200/60 dark:border-slate-700/60 text-xs font-mono text-slate-500">{c4Result.savingsFormula}</div>}
+                </>
               )}
             </div>
           </div>

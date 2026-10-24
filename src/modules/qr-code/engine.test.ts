@@ -41,6 +41,13 @@ describe("QR Code Engine", () => {
     expect(buildEmailPayload({ to: "hi@utilby.com", subject: "", body: "" })).toBe("mailto:hi@utilby.com");
   });
 
+  it("encodes recipient query delimiters and vCard newlines safely", () => {
+    expect(buildEmailPayload({ to: "a@b.com?cc=x@y.com", subject: "", body: "" })).toBe("mailto:a@b.com%3Fcc%3Dx%40y.com");
+    const card = buildVCardPayload({ firstName: "A\r\nTEL:+1", lastName: "", organization: "", title: "", phone: "", email: "", website: "", address: "" });
+    expect(card).toContain("FN:A\\nTEL:+1");
+    expect(card.split("\n")).not.toContain("TEL:+1");
+  });
+
   it("cleans phone numbers for tel and SMS payloads", () => {
     expect(buildPhonePayload("+880 1712-345 678")).toBe("tel:+8801712345678");
     expect(buildSmsPayload({ phone: "01712 345678", message: "Hi" })).toBe("SMSTO:01712345678:Hi");

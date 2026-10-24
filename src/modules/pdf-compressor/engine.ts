@@ -45,6 +45,8 @@ export interface PdfCompressionResult {
 }
 
 export const DEFAULT_COMPRESSION_OPTIONS: PdfCompressionOptions = { preset: "balanced" };
+export const MAX_PDF_BYTES = 100 * 1024 * 1024;
+export const MAX_COMPRESSIBLE_IMAGES = 1500;
 
 export const COMPRESSION_PRESETS: Record<CompressionPreset, { label: string; maxDimension: number; quality: number; description: string }> = {
   balanced: { label: "Recommended", maxDimension: 1800, quality: 0.78, description: "Good quality with a smaller file" },
@@ -97,8 +99,10 @@ export function deduplicatePdfStreams(document: PDFDocument, pdfLib: PdfLibRunti
   if (replacements.size === 0) return 0;
 
   const visited = new Set<object>();
-  const rewrite = (object: object | undefined): void => {
-    if (!object || visited.has(object)) return;
+  const stack: object[] = indirectObjects.map(([, object]) => object);
+  while (stack.length) {
+    const object = stack.pop()!;
+    if (visited.has(object)) continue;
     visited.add(object);
     if (object instanceof pdfLib.PDFDict) {
       for (const [key, value] of object.entries()) {
@@ -106,9 +110,9 @@ export function deduplicatePdfStreams(document: PDFDocument, pdfLib: PdfLibRunti
           const replacement = replacements.get(value.toString());
           if (replacement) object.set(key, replacement);
         } else if (value instanceof pdfLib.PDFDict || value instanceof pdfLib.PDFArray) {
-          rewrite(value);
+          stack.push(value);
         } else if (value instanceof pdfLib.PDFStream) {
-          rewrite(value.dict);
+          stack.push(value.dict);
         }
       }
     } else if (object instanceof pdfLib.PDFArray) {
@@ -118,17 +122,15 @@ export function deduplicatePdfStreams(document: PDFDocument, pdfLib: PdfLibRunti
           const replacement = replacements.get(value.toString());
           if (replacement) object.set(i, replacement);
         } else if (value instanceof pdfLib.PDFDict || value instanceof pdfLib.PDFArray) {
-          rewrite(value);
+          stack.push(value);
         } else if (value instanceof pdfLib.PDFStream) {
-          rewrite(value.dict);
+          stack.push(value.dict);
         }
       }
     } else if (object instanceof pdfLib.PDFStream) {
-      rewrite(object.dict);
+      stack.push(object.dict);
     }
-  };
-
-  for (const [, object] of indirectObjects) rewrite(object);
+  }
   for (const key of Object.keys(context.trailerInfo) as (keyof typeof context.trailerInfo)[]) {
     const value = context.trailerInfo[key];
     if (value instanceof pdfLib.PDFRef) {
@@ -167,6 +169,7 @@ export async function compressPdf(
   reencodeImage?: ImageReencoder,
   onProgress?: (progress: CompressionProgress) => void,
 ): Promise<PdfCompressionResult> {
+  if (input.byteLength > MAX_PDF_BYTES) throw new Error("PDF exceeds the 100 MB processing limit.");
   const pdfLib = await import("pdf-lib");
   const source = input instanceof Uint8Array ? input.slice() : new Uint8Array(input.slice(0));
   const originalBytes = source.byteLength;
@@ -185,6 +188,9 @@ export async function compressPdf(
   const imageRefs = document.context.enumerateIndirectObjects().filter(([, object]) =>
     object instanceof pdfLib.PDFRawStream && getImageDimensions(object, pdfLib) !== null
   );
+  if (imageRefs.length > MAX_COMPRESSIBLE_IMAGES) {
+    throw new Error(`This PDF contains more than ${MAX_COMPRESSIBLE_IMAGES} supported images. Use a smaller document or split it first.`);
+  }
   let modifiedImages = 0;
   let downsampledImages = 0;
 

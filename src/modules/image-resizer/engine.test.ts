@@ -66,4 +66,9 @@ describe("Image Resizer Engine", () => {
     expect(downscaleSteps(1, 1)).toBe(0);
     expect(downscaleSteps(5, 1)).toBe(2);
   });
+
+  it("keeps requested canvas sizes inside the pixel memory budget", () => {
+    const plan = planFit(1000, 1000, 16384, 16384, "stretch");
+    expect(plan.width * plan.height).toBeLessThanOrEqual(32_000_000);
+  });
 });

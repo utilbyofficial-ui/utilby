@@ -21,7 +21,7 @@
 ## 2. Tech Stack & Architecture
 - **Framework:** Next.js 15 (App Router), `output: "export"` (Static Site Generation into `out/`).
 - **Language & Styling:** TypeScript, Tailwind CSS 3 (custom "Playful Color" system), Lucide React.
-- **Testing:** Vitest (`npm test`). Currently **108/108 tests passing** across 15 test suites.
+- **Testing:** Vitest (`npm test`). Currently **124/124 tests passing** across 16 test suites.
 - **Fonts (Self-hosted):** Bricolage Grotesque (`font-display`) for headings, DM Sans (`font-sans`) for body.
 - **Hosting & DNS:** Cloudflare Pages with auto-build on git push, custom domain `utilby.com`.
 

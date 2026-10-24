@@ -59,6 +59,11 @@ type SplitMode = "selected" | "each" | "ranges" | "every";
 const ACCEPT_PDF = "application/pdf";
 const ACCEPT_IMAGES = "image/jpeg,image/png,image/webp,image/gif,image/bmp";
 const MAX_FILE_BYTES = 200 * 1024 * 1024;
+const MAX_WORKSPACE_BYTES = 50 * 1024 * 1024;
+const MAX_WORKSPACE_PAGES = 500;
+const MAX_SPLIT_GROUPS = 100;
+const MAX_IMPORT_FILES = 20;
+const MAX_EXPORT_BYTES = 100 * 1024 * 1024;
 const THUMB_WIDTH = 160;
 
 let counter = 0;
@@ -117,21 +122,23 @@ export function PdfWorkspace({ mode = "organize" }: PdfWorkspaceProps) {
   const sourceData = React.useRef(new Map<string, SourceData>());
   const renderDocs = React.useRef(new Map<string, Promise<PDFDocumentProxy>>());
   const sourceBytes = React.useRef(new Map<string, Uint8Array>());
+  const importGeneration = React.useRef(0);
   const imageUrls = React.useRef(new Map<string, string>());
   const thumbQueue = React.useRef<PageItem[]>([]);
   const thumbPending = React.useRef(new Set<string>());
   const thumbsRef = React.useRef<Record<string, string>>({});
   const activeRenders = React.useRef(0);
-
-  React.useEffect(() => {
-    thumbsRef.current = thumbs;
-  }, [thumbs]);
+  const commitThumbs = React.useCallback((next: Record<string, string>) => {
+    thumbsRef.current = next;
+    setThumbs(next);
+  }, []);
 
   // Clean up object URLs and pdf.js documents on unmount.
   React.useEffect(() => {
     const urls = imageUrls.current;
     const docs = renderDocs.current;
     return () => {
+      importGeneration.current++;
       Object.values(thumbsRef.current).forEach((u) => URL.revokeObjectURL(u));
       urls.forEach((u) => URL.revokeObjectURL(u));
       docs.forEach((p) => p.then((d) => d.destroy()).catch(() => undefined));
@@ -190,14 +197,21 @@ export function PdfWorkspace({ mode = "organize" }: PdfWorkspaceProps) {
       activeRenders.current++;
       docPromise
         .then((doc) => renderPageToUrl(doc, page.sourceIndex, THUMB_WIDTH))
-        .then((url) => setThumbs((t) => ({ ...t, [key]: url })))
+        .then((url) => {
+          if (!page.sourceId || !sourceData.current.has(page.sourceId)) {
+            URL.revokeObjectURL(url);
+            return;
+          }
+          commitThumbs({ ...thumbsRef.current, [key]: url });
+        })
         .catch(() => undefined)
         .finally(() => {
+          thumbPending.current.delete(key);
           activeRenders.current--;
           pumpThumbs();
         });
     }
-  }, []);
+  }, [commitThumbs]);
 
   const requestThumb = React.useCallback(
     (page: PageItem) => {
@@ -213,13 +227,19 @@ export function PdfWorkspace({ mode = "organize" }: PdfWorkspaceProps) {
 
   // ---------- Adding files ----------
   const addFiles = async (list: FileList | File[]) => {
-    const files = Array.from(list);
+    const submittedFiles = Array.from(list);
+    const files = submittedFiles.slice(0, MAX_IMPORT_FILES);
     if (!files.length) return;
+    const generation = importGeneration.current;
     const newErrors: string[] = [];
+    if (submittedFiles.length > MAX_IMPORT_FILES) {
+      newErrors.push(`Only ${MAX_IMPORT_FILES} files can be added at once. The first ${MAX_IMPORT_FILES} are being processed.`);
+    }
     setLoading((n) => n + files.length);
     const added: { source: SourceFile; pages: PageItem[] }[] = [];
 
     for (const file of files) {
+      if (generation !== importGeneration.current) break;
       try {
         const isPdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name);
         const isImage = file.type.startsWith("image/");
@@ -231,27 +251,42 @@ export function PdfWorkspace({ mode = "organize" }: PdfWorkspaceProps) {
           newErrors.push(`${file.name}: larger than ${formatBytes(MAX_FILE_BYTES)}.`);
           continue;
         }
+        const usedBytes = [...sourceBytes.current.values()].reduce((sum, bytes) => sum + bytes.byteLength, 0) +
+          [...sourceData.current.values()].reduce((sum, source) => sum + (source.kind === "image" ? source.bytes.byteLength : 0), 0);
+        if (file.size > MAX_WORKSPACE_BYTES - usedBytes) {
+          newErrors.push(`${file.name}: the workspace has a ${formatBytes(MAX_WORKSPACE_BYTES)} combined input limit. Remove files before adding more.`);
+          continue;
+        }
         const id = uid("src");
         const color = SOURCE_COLORS[(sources.length + added.length) % SOURCE_COLORS.length];
         if (isPdf) {
           const bytes = new Uint8Array(await file.arrayBuffer());
+          if (generation !== importGeneration.current) continue;
           const doc = await loadPdf(bytes);
-          sourceData.current.set(id, { kind: "pdf", doc });
-          sourceBytes.current.set(id, bytes);
-          renderDocs.current.set(id, openPdfForRendering(bytes));
+          if (generation !== importGeneration.current) continue;
           const docPages = doc.getPages().map((pg, i) => {
             const { width, height } = pg.getSize();
             const own = pg.getRotation().angle;
             const size = rotatedSize(width, height, own);
             return { id: uid("pg"), kind: "pdf" as const, sourceId: id, sourceIndex: i, rotation: 0 as const, ...size };
           });
-          if (!docPages.length) {
-            newErrors.push(`${file.name}: this PDF has no pages.`);
+          const pendingPageCount = added.reduce((sum, entry) => sum + entry.pages.length, 0);
+          if (!docPages.length || pagesRef.current.length + pendingPageCount + docPages.length > MAX_WORKSPACE_PAGES) {
+            newErrors.push(!docPages.length ? `${file.name}: this PDF has no pages.` : `${file.name}: the workspace is limited to ${MAX_WORKSPACE_PAGES} pages.`);
             continue;
           }
+          sourceData.current.set(id, { kind: "pdf", doc });
+          sourceBytes.current.set(id, bytes);
+          renderDocs.current.set(id, openPdfForRendering(bytes));
           added.push({ source: { id, name: file.name, kind: "pdf", color, pageCount: docPages.length }, pages: docPages });
         } else {
           const img = await prepareImage(file);
+          if (generation !== importGeneration.current) continue;
+          const pendingPageCount = added.reduce((sum, entry) => sum + entry.pages.length, 0);
+          if (pagesRef.current.length + pendingPageCount + 1 > MAX_WORKSPACE_PAGES) {
+            newErrors.push(`${file.name}: the workspace is limited to ${MAX_WORKSPACE_PAGES} pages.`);
+            continue;
+          }
           sourceData.current.set(id, { kind: "image", ...img });
           const url = URL.createObjectURL(new Blob([img.bytes as BlobPart], { type: img.format === "jpg" ? "image/jpeg" : "image/png" }));
           imageUrls.current.set(id, url);
@@ -264,13 +299,14 @@ export function PdfWorkspace({ mode = "organize" }: PdfWorkspaceProps) {
         newErrors.push(
           e instanceof EncryptedPdfError
             ? `${file.name}: password-protected PDFs aren't supported yet. Remove the password first.`
-            : `${file.name}: couldn't be opened. The file may be damaged.`
+            : `${file.name}: ${e instanceof Error ? e.message : "couldn't be opened. The file may be damaged."}`
         );
       } finally {
-        setLoading((n) => n - 1);
+        setLoading((n) => Math.max(0, n - 1));
       }
     }
 
+    if (generation !== importGeneration.current) return;
     setErrors(newErrors);
     if (!added.length) return;
     setSources((s) => [...s, ...added.map((a) => a.source)]);
@@ -290,11 +326,37 @@ export function PdfWorkspace({ mode = "organize" }: PdfWorkspaceProps) {
   };
 
   const removeSource = (id: string) => {
-    applyPages((prev) => prev.filter((p) => p.sourceId !== id));
+    const removedPages = pagesRef.current.filter((p) => p.sourceId === id);
+    const nextPages = pagesRef.current.filter((p) => p.sourceId !== id);
+    for (const page of removedPages) {
+      const key = thumbKey(page);
+      const url = thumbsRef.current[key];
+      if (url) URL.revokeObjectURL(url);
+      thumbPending.current.delete(key);
+      delete thumbsRef.current[key];
+    }
+    const nextThumbs = { ...thumbsRef.current };
+    for (const page of removedPages) delete nextThumbs[thumbKey(page)];
+    commitThumbs(nextThumbs);
+    thumbQueue.current = thumbQueue.current.filter((page) => page.sourceId !== id);
+    historyRef.current = { past: [], future: [] };
+    commitPages(nextPages);
+    setSelected((prev) => new Set([...prev].filter((pageId) => nextPages.some((p) => p.id === pageId))));
+    setDone("");
+    sourceData.current.delete(id);
+    sourceBytes.current.delete(id);
+    const imageUrl = imageUrls.current.get(id);
+    if (imageUrl) URL.revokeObjectURL(imageUrl);
+    imageUrls.current.delete(id);
+    const renderDoc = renderDocs.current.get(id);
+    renderDoc?.then((doc) => doc.destroy()).catch(() => undefined);
+    renderDocs.current.delete(id);
     setSources((s) => s.filter((x) => x.id !== id));
   };
 
   const clearAll = () => {
+    importGeneration.current++;
+    setLoading(0);
     Object.values(thumbsRef.current).forEach((u) => URL.revokeObjectURL(u));
     imageUrls.current.forEach((u) => URL.revokeObjectURL(u));
     renderDocs.current.forEach((p) => p.then((d) => d.destroy()).catch(() => undefined));
@@ -304,7 +366,7 @@ export function PdfWorkspace({ mode = "organize" }: PdfWorkspaceProps) {
     imageUrls.current.clear();
     thumbQueue.current = [];
     thumbPending.current.clear();
-    setThumbs({});
+    commitThumbs({});
     setSources([]);
     historyRef.current = { past: [], future: [] };
     commitPages([]);
@@ -422,12 +484,14 @@ export function PdfWorkspace({ mode = "organize" }: PdfWorkspaceProps) {
       const opts = { ...DEFAULT_BUILD_OPTIONS, imagePageSize, title: outName };
       if (exportTab === "save") {
         const bytes = await buildPdf(pages, sourceData.current, opts);
+        if (bytes.byteLength > MAX_EXPORT_BYTES) throw new Error(`The PDF output exceeded the ${formatBytes(MAX_EXPORT_BYTES)} download limit. Remove pages or export smaller groups.`);
         triggerDownload(new Blob([bytes as BlobPart], { type: "application/pdf" }), `${outName}.pdf`);
         setDone(`Saved ${outName}.pdf • ${pages.length} page${pages.length > 1 ? "s" : ""} • ${formatBytes(bytes.length)}`);
       } else {
         const { groups, error } = splitGroups;
         if (error || !groups.length) throw new Error(error || "Nothing to export");
-        const files = await buildPdfGroups(pages, groups, sourceData.current, opts);
+        if (groups.length > MAX_SPLIT_GROUPS) throw new Error(`Split exports are limited to ${MAX_SPLIT_GROUPS} output files at a time.`);
+        const files = await buildPdfGroups(pages, groups, sourceData.current, opts, MAX_EXPORT_BYTES);
         if (files.length === 1) {
           const name = `${outName}-pages-${formatIndexes(groups[0]).replace(/\s/g, "")}.pdf`;
           triggerDownload(new Blob([files[0] as BlobPart], { type: "application/pdf" }), name);
@@ -491,7 +555,7 @@ export function PdfWorkspace({ mode = "organize" }: PdfWorkspaceProps) {
         {mode === "images" ? "Drop images here or click to browse" : "Drop PDF files here or click to browse"}
       </p>
       <p className="mt-1 text-xs text-slate-500">
-        {mode === "images" ? "JPG, PNG, WebP, GIF, BMP — PDFs can be added too" : "PDF files and images (JPG, PNG) • Multiple files supported"} • Processed on your device
+        {mode === "images" ? "JPG, PNG, WebP, GIF, BMP — PDFs can be added too" : "PDF files and images (JPG, PNG) • 20 files per import"} • 50 MB combined • 500 pages per workspace
       </p>
     </div>
   );
@@ -614,7 +678,24 @@ export function PdfWorkspace({ mode = "organize" }: PdfWorkspaceProps) {
           type="button"
           className={toolbarBtn}
           disabled={!actionTargets}
-          onClick={() => actionTargets && applyPages((prev) => duplicatePages(prev, actionTargets, () => uid("pg")))}
+          onClick={() => {
+            if (!actionTargets) return;
+            const counts = new Map<string, number>();
+            for (const page of pages) {
+              const key = page.kind === "blank" ? page.id : `${page.sourceId}:${page.sourceIndex}`;
+              counts.set(key, (counts.get(key) ?? 0) + 1);
+            }
+            const wouldExceedCopies = pages.some((page) => {
+              if (!actionTargets.has(page.id)) return false;
+              const key = page.kind === "blank" ? page.id : `${page.sourceId}:${page.sourceIndex}`;
+              return (counts.get(key) ?? 0) >= 2;
+            });
+            if (pages.length + actionTargets.size > MAX_WORKSPACE_PAGES || wouldExceedCopies) {
+              setErrors([wouldExceedCopies ? "A source page can be included at most twice per workspace." : `The workspace is limited to ${MAX_WORKSPACE_PAGES} pages.`]);
+              return;
+            }
+            applyPages((prev) => duplicatePages(prev, actionTargets, () => uid("pg")));
+          }}
           title="Duplicate selected"
         >
           <Copy className="h-4 w-4" />
@@ -638,6 +719,10 @@ export function PdfWorkspace({ mode = "organize" }: PdfWorkspaceProps) {
           type="button"
           className={toolbarBtn}
           onClick={() => {
+            if (pages.length >= MAX_WORKSPACE_PAGES) {
+              setErrors([`The workspace is limited to ${MAX_WORKSPACE_PAGES} pages.`]);
+              return;
+            }
             const last = selectedIndexes.length ? selectedIndexes[selectedIndexes.length - 1] : pages.length - 1;
             const ref = pages[last];
             applyPages((prev) =>

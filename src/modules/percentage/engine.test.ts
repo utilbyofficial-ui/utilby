@@ -9,7 +9,8 @@ import {
 describe("Percentage Calculator Engine", () => {
   it("calculates percentage of a number", () => {
     const res = calculatePercentageOf(20, 150);
-    expect(res.result).toBe(30);
+    expect("error" in res).toBe(false);
+    if (!("error" in res)) expect(res.result).toBe(30);
   });
 
   it("calculates what percentage X is of Y", () => {
@@ -40,7 +41,17 @@ describe("Percentage Calculator Engine", () => {
 
   it("calculates discount and final price", () => {
     const res = calculateDiscount(100, 20);
-    expect(res.discountAmount).toBe(20);
-    expect(res.finalPrice).toBe(80);
+    expect("error" in res).toBe(false);
+    if (!("error" in res)) {
+      expect(res.discountAmount).toBe(20);
+      expect(res.finalPrice).toBe(80);
+    }
+  });
+
+  it("rejects non-finite calculator values and invalid discounts", () => {
+    expect("error" in calculatePercentageOf(Infinity, 10)).toBe(true);
+    expect("error" in calculateWhatPercentageIs(1, Infinity)).toBe(true);
+    expect("error" in calculatePercentageChange(1, NaN)).toBe(true);
+    expect("error" in calculateDiscount(100, 150)).toBe(true);
   });
 });

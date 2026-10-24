@@ -1,3 +1,5 @@
+import { isSupportedImage, MAX_FILE_BYTES, MAX_IMAGE_PIXELS, readImageDimensions } from "@/modules/image-compressor/engine";
+
 /** Reads the EXIF orientation (1–8) from JPEG bytes. Returns 1 when absent or not a JPEG. */
 export function readJpegOrientation(bytes: Uint8Array): number {
   if (bytes.length < 4 || bytes[0] !== 0xff || bytes[1] !== 0xd8) return 1;
@@ -45,33 +47,42 @@ export interface PreparedImage {
  * Other formats (WebP, GIF, BMP) are converted to PNG.
  */
 export async function prepareImage(file: File): Promise<PreparedImage> {
-  const bytes = new Uint8Array(await file.arrayBuffer());
+  if (file.size > MAX_FILE_BYTES) throw new Error("Image exceeds the 50 MB file limit.");
   const type = file.type.toLowerCase();
+  if (!isSupportedImage(type)) throw new Error("Unsupported image format.");
+  const headerDimensions = await readImageDimensions(file);
+  if (headerDimensions && headerDimensions.width * headerDimensions.height > MAX_IMAGE_PIXELS) {
+    throw new Error(`Image is larger than the ${MAX_IMAGE_PIXELS.toLocaleString()} pixel processing limit.`);
+  }
+  const bytes = new Uint8Array(await file.arrayBuffer());
   const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" } as ImageBitmapOptions);
-  const width = bitmap.width;
-  const height = bitmap.height;
+  let canvas: HTMLCanvasElement | null = null;
+  try {
+    const width = bitmap.width;
+    const height = bitmap.height;
+    if (width * height > 32_000_000) throw new Error("Image exceeds the 32 megapixel processing limit.");
+    const isJpeg = type === "image/jpeg" || type === "image/jpg";
+    if (type === "image/png" || (isJpeg && readJpegOrientation(bytes) === 1)) {
+      return { bytes, format: isJpeg ? "jpg" : "png", width, height };
+    }
 
-  const isJpeg = type === "image/jpeg" || type === "image/jpg";
-  if (type === "image/png" || (isJpeg && readJpegOrientation(bytes) === 1)) {
+    canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Canvas is not supported in this browser");
+    if (isJpeg) {
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, width, height);
+    }
+    ctx.drawImage(bitmap, 0, 0);
+    const outType = isJpeg ? "image/jpeg" : "image/png";
+    const blob: Blob = await new Promise((resolve, reject) =>
+      canvas!.toBlob((b) => (b ? resolve(b) : reject(new Error("Image conversion failed"))), outType, 0.95)
+    );
+    return { bytes: new Uint8Array(await blob.arrayBuffer()), format: isJpeg ? "jpg" : "png", width, height };
+  } finally {
     bitmap.close();
-    return { bytes, format: isJpeg ? "jpg" : "png", width, height };
+    if (canvas) { canvas.width = 0; canvas.height = 0; }
   }
-
-  const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
-  const ctx = canvas.getContext("2d")!;
-  if (isJpeg) {
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, width, height);
-  }
-  ctx.drawImage(bitmap, 0, 0);
-  bitmap.close();
-  const outType = isJpeg ? "image/jpeg" : "image/png";
-  const blob: Blob = await new Promise((resolve, reject) =>
-    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("Image conversion failed"))), outType, 0.95)
-  );
-  canvas.width = 0;
-  canvas.height = 0;
-  return { bytes: new Uint8Array(await blob.arrayBuffer()), format: isJpeg ? "jpg" : "png", width, height };
 }

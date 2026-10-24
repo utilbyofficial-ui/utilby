@@ -5,7 +5,10 @@ let pdfLibPromise: Promise<typeof import("pdf-lib")> | null = null;
 
 export function getPdfLib() {
   if (!pdfLibPromise) {
-    pdfLibPromise = import("pdf-lib");
+    pdfLibPromise = import("pdf-lib").catch((error) => {
+      pdfLibPromise = null;
+      throw error;
+    });
   }
   return pdfLibPromise;
 }
@@ -125,11 +128,16 @@ export async function buildPdfGroups(
   pages: PageItem[],
   groups: number[][],
   sources: Map<string, SourceData>,
-  options: BuildOptions = DEFAULT_BUILD_OPTIONS
+  options: BuildOptions = DEFAULT_BUILD_OPTIONS,
+  maxOutputBytes = Number.POSITIVE_INFINITY
 ): Promise<Uint8Array[]> {
   const results: Uint8Array[] = [];
+  let totalBytes = 0;
   for (const group of groups) {
-    results.push(await buildPdf(group.map((i) => pages[i]), sources, options));
+    const output = await buildPdf(group.map((i) => pages[i]), sources, options);
+    totalBytes += output.byteLength;
+    if (totalBytes > maxOutputBytes) throw new Error(`Split output exceeded the ${Math.round(maxOutputBytes / (1024 * 1024))} MB processing limit.`);
+    results.push(output);
   }
   return results;
 }

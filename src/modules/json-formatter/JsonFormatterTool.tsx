@@ -9,6 +9,7 @@ import {
   SAMPLE_JSON,
   JsonValidationResult,
   JsonStats,
+  MAX_JSON_BYTES,
 } from "./engine";
 import { formatBytes } from "@/modules/image-compressor/engine";
 import { Button } from "@/components/ui/Button";
@@ -30,6 +31,7 @@ export function JsonFormatterTool() {
   const [inputJson, setInputJson] = React.useState(SAMPLE_JSON);
   const [indent, setIndent] = React.useState<string>("2");
   const [status, setStatus] = React.useState<JsonValidationResult>({ isValid: true, output: "" });
+  const [uploadError, setUploadError] = React.useState("");
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const getIndentValue = React.useCallback((): number | string => {
@@ -78,7 +80,13 @@ export function JsonFormatterTool() {
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file) { e.target.value = ""; return; }
+    setUploadError("");
+    if (file.size > MAX_JSON_BYTES) {
+      setUploadError("JSON files are limited to 5 MB for responsive browser processing.");
+      e.target.value = "";
+      return;
+    }
     const reader = new FileReader();
     reader.onload = (event) => {
       const content = event.target?.result;
@@ -88,6 +96,7 @@ export function JsonFormatterTool() {
         setStatus(res);
       }
     };
+    reader.onerror = () => setUploadError("The selected file could not be read.");
     reader.readAsText(file);
     e.target.value = "";
   };
@@ -101,7 +110,7 @@ export function JsonFormatterTool() {
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
   return (
@@ -217,6 +226,7 @@ export function JsonFormatterTool() {
 
       {/* Editor & Validation Feedback */}
       <div className="mt-4 space-y-3">
+        {uploadError && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3.5 py-2 text-xs font-medium text-rose-700">{uploadError}</p>}
         {/* Status Notification */}
         {inputJson.trim() !== "" && (
           <div>
@@ -252,6 +262,7 @@ export function JsonFormatterTool() {
         )}
 
         <textarea
+          maxLength={MAX_JSON_BYTES}
           value={inputJson}
           onChange={(e) => {
             const val = e.target.value;

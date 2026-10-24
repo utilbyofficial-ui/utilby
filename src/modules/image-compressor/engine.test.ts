@@ -8,6 +8,7 @@ import {
   dedupeFilenames,
   clampQuality,
   isSupportedImage,
+  getImageDimensionsFromBytes,
 } from "./engine";
 
 describe("Image Compressor Engine", () => {
@@ -53,5 +54,16 @@ describe("Image Compressor Engine", () => {
     expect(clampQuality(NaN)).toBe(75);
     expect(isSupportedImage("image/JPEG")).toBe(true);
     expect(isSupportedImage("application/pdf")).toBe(false);
+  });
+
+  it("reads PNG and JPEG dimensions from headers without decoding", () => {
+    const png = new Uint8Array(24);
+    png.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+    new DataView(png.buffer).setUint32(16, 640);
+    new DataView(png.buffer).setUint32(20, 480);
+    expect(getImageDimensionsFromBytes(png)).toEqual({ width: 640, height: 480 });
+
+    const jpeg = Uint8Array.from([0xff, 0xd8, 0xff, 0xc0, 0x00, 0x11, 0x08, 0x00, 0x02, 0x00, 0x03, 0x01, 0x01, 0x11, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]);
+    expect(getImageDimensionsFromBytes(jpeg)).toEqual({ width: 3, height: 2 });
   });
 });

@@ -59,33 +59,26 @@ export function buildZipFilename(baseName: string): string {
  * Ignores invalid tokens and bounds pages within 1..totalPages.
  */
 export function parsePageRanges(rangeStr: string, totalPages: number): number[] {
-  if (!rangeStr.trim() || totalPages <= 0) {
-    return Array.from({ length: totalPages }, (_, i) => i + 1);
-  }
+  if (!Number.isSafeInteger(totalPages) || totalPages <= 0) return [];
+  if (!rangeStr.trim()) return Array.from({ length: totalPages }, (_, i) => i + 1);
 
   const pages = new Set<number>();
-  const tokens = rangeStr.split(/[,\s]+/).map((t) => t.trim()).filter(Boolean);
-
+  const tokens = rangeStr.split(/[,\s]+/).map((token) => token.trim()).filter(Boolean);
   for (const token of tokens) {
+    if (!/^\d+(?:-\d+)?$/.test(token)) return [];
     if (token.includes("-")) {
-      const [startStr, endStr] = token.split("-");
-      const start = parseInt(startStr || "", 10);
-      const end = parseInt(endStr || "", 10);
-      if (!isNaN(start) && !isNaN(end)) {
-        const from = Math.max(1, Math.min(start, end));
-        const to = Math.min(totalPages, Math.max(start, end));
-        for (let p = from; p <= to; p++) {
-          pages.add(p);
-        }
-      }
+      const [startText, endText] = token.split("-");
+      const start = Number(startText);
+      const end = Number(endText);
+      if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start < 1 || end < 1) return [];
+      const from = Math.max(1, Math.min(start, end));
+      const to = Math.min(totalPages, Math.max(start, end));
+      for (let page = from; page <= to; page++) pages.add(page);
     } else {
-      const single = parseInt(token, 10);
-      if (!isNaN(single) && single >= 1 && single <= totalPages) {
-        pages.add(single);
-      }
+      const page = Number(token);
+      if (!Number.isSafeInteger(page) || page < 1) return [];
+      if (page <= totalPages) pages.add(page);
     }
   }
-
-  const result = Array.from(pages).sort((a, b) => a - b);
-  return result.length > 0 ? result : Array.from({ length: totalPages }, (_, i) => i + 1);
+  return Array.from(pages).sort((a, b) => a - b);
 }

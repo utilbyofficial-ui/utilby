@@ -1,15 +1,18 @@
 "use client";
 
 import * as React from "react";
-import { analyzeText, WordStats } from "./engine";
+import { analyzeText, WordStats, MAX_TEXT_ANALYSIS_CHARACTERS } from "./engine";
 import { CopyButton } from "@/components/shared/CopyButton";
 import { ClearButton } from "@/components/shared/ClearButton";
 import { Button } from "@/components/ui/Button";
 import { Clipboard, Clock, Sparkles, Upload, Download, Filter } from "lucide-react";
 
+const MAX_TEXT_FILE_BYTES = 10 * 1024 * 1024;
+
 export function WordCounterTool() {
   const [text, setText] = React.useState("");
   const [filterStopWords, setFilterStopWords] = React.useState(true);
+  const [fileError, setFileError] = React.useState("");
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const stats: WordStats = React.useMemo(
@@ -34,15 +37,14 @@ export function WordCounterTool() {
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const content = event.target?.result;
-      if (typeof content === "string") {
-        setText(content);
-      }
-    };
-    reader.readAsText(file);
+    if (!file) { e.target.value = ""; return; }
+    setFileError("");
+    if (file.size > MAX_TEXT_FILE_BYTES) {
+      setFileError("Text files are limited to 10 MB.");
+      e.target.value = "";
+      return;
+    }
+    void file.text().then(setText).catch(() => setFileError("The selected file could not be read."));
     e.target.value = "";
   };
 
@@ -55,7 +57,7 @@ export function WordCounterTool() {
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
   return (
@@ -169,7 +171,10 @@ export function WordCounterTool() {
 
       {/* Main Textarea */}
       <div className="mt-3">
+        {stats.inputTooLarge && <p role="status" className="mb-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">Analysis uses the first {MAX_TEXT_ANALYSIS_CHARACTERS.toLocaleString()} characters to keep the browser responsive. Character totals include the full text.</p>}
+        {fileError && <p role="alert" className="mb-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700">{fileError}</p>}
         <textarea
+          maxLength={2_000_000}
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder="Type or paste your text here to inspect word count, characters, sentences, reading time, and keyword density..."

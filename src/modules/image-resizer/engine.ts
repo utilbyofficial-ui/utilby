@@ -1,4 +1,4 @@
-import { resolveOutputMime, clampQuality, OutputFormat } from "@/modules/image-compressor/engine";
+import { resolveOutputMime, clampQuality, OutputFormat, isSupportedImage, MAX_FILE_BYTES, MAX_IMAGE_PIXELS, readImageDimensions } from "@/modules/image-compressor/engine";
 
 export type ResizeMode = "pixels" | "percent" | "preset";
 export type FitMode = "contain" | "cover" | "stretch";
@@ -60,6 +60,7 @@ export const DEFAULT_RESIZE_SETTINGS: ResizeSettings = {
 export const MAX_DIMENSION = 16384;
 
 function clampDim(n: number): number {
+  if (!Number.isFinite(n)) return 1;
   return Math.min(MAX_DIMENSION, Math.max(1, Math.round(n)));
 }
 
@@ -83,8 +84,20 @@ export interface Plan {
 
 /** Fits a source image into a target box using contain / cover / stretch. */
 export function planFit(srcW: number, srcH: number, dstW: number, dstH: number, fit: FitMode): Plan {
-  const width = clampDim(dstW);
-  const height = clampDim(dstH);
+  if (!Number.isFinite(srcW) || !Number.isFinite(srcH) || srcW <= 0 || srcH <= 0) {
+    throw new RangeError("Source image dimensions are invalid.");
+  }
+  let width = clampDim(dstW);
+  let height = clampDim(dstH);
+  if (width * height > MAX_IMAGE_PIXELS) {
+    const scale = Math.sqrt(MAX_IMAGE_PIXELS / (width * height));
+    width = Math.max(1, Math.floor(width * scale));
+    height = Math.max(1, Math.floor(height * scale));
+    while (width * height > MAX_IMAGE_PIXELS) {
+      if (width >= height) width--;
+      else height--;
+    }
+  }
   const base = { width, height, sx: 0, sy: 0, sw: srcW, sh: srcH, dx: 0, dy: 0, dw: width, dh: height, padded: false };
   if (fit === "stretch") return base;
 
@@ -183,50 +196,57 @@ function toBlob(canvas: HTMLCanvasElement, mime: string, quality?: number): Prom
 
 /** Browser-only: resizes an image file according to the settings. */
 export async function resizeImage(file: File, s: ResizeSettings): Promise<ResizeResult> {
+  if (!isSupportedImage(file.type)) throw new Error("Unsupported image format.");
+  if (file.size > MAX_FILE_BYTES) throw new Error("Image exceeds the 50 MB file limit.");
+  const headerDimensions = await readImageDimensions(file);
+  if (headerDimensions && headerDimensions.width * headerDimensions.height > MAX_IMAGE_PIXELS) {
+    throw new Error(`Image is larger than the ${MAX_IMAGE_PIXELS.toLocaleString()} pixel processing limit.`);
+  }
   const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" } as ImageBitmapOptions);
-  const plan = planResize(bitmap.width, bitmap.height, s);
-  const mime = resolveOutputMime(file.type, s.format);
-
-  // Progressive halving of the cropped source for sharp, alias-free downscales.
-  let source: CanvasImageSource = bitmap;
-  let sx = plan.sx, sy = plan.sy, sw = plan.sw, sh = plan.sh;
-  const steps = downscaleSteps(Math.max(sw / plan.dw, sh / plan.dh), 1);
-  let temp: HTMLCanvasElement | null = null;
-  for (let i = 0; i < steps; i++) {
-    const c = document.createElement("canvas");
-    c.width = Math.max(1, Math.round(sw / 2));
-    c.height = Math.max(1, Math.round(sh / 2));
-    const cx = c.getContext("2d")!;
-    cx.imageSmoothingEnabled = true;
-    cx.imageSmoothingQuality = "high";
-    cx.drawImage(source, sx, sy, sw, sh, 0, 0, c.width, c.height);
-    if (temp) { temp.width = 0; temp.height = 0; }
-    temp = c;
-    source = c;
-    sx = 0; sy = 0; sw = c.width; sh = c.height;
-  }
-
-  const canvas = document.createElement("canvas");
-  canvas.width = plan.width;
-  canvas.height = plan.height;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) throw new Error("Canvas is not supported in this browser");
-  if (plan.padded || mime === "image/jpeg") {
-    // JPEG can't be transparent; padded areas use the chosen background (transparent for PNG/WebP if chosen).
-    if (mime === "image/jpeg" || s.background !== "transparent") {
-      ctx.fillStyle = s.background === "transparent" ? "#ffffff" : s.background;
-      ctx.fillRect(0, 0, plan.width, plan.height);
+  const canvases: HTMLCanvasElement[] = [];
+  try {
+    if (bitmap.width * bitmap.height > MAX_IMAGE_PIXELS) {
+      throw new Error(`Image is larger than the ${MAX_IMAGE_PIXELS.toLocaleString()} pixel processing limit.`);
     }
-  }
-  ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = "high";
-  ctx.drawImage(source, sx, sy, sw, sh, plan.dx, plan.dy, plan.dw, plan.dh);
-  bitmap.close();
-  if (temp) { temp.width = 0; temp.height = 0; }
+    const plan = planResize(bitmap.width, bitmap.height, s);
+    const mime = resolveOutputMime(file.type, s.format);
+    let source: CanvasImageSource = bitmap;
+    let sx = plan.sx, sy = plan.sy, sw = plan.sw, sh = plan.sh;
+    const steps = downscaleSteps(Math.max(sw / plan.dw, sh / plan.dh), 1);
+    for (let i = 0; i < steps; i++) {
+      const c = document.createElement("canvas");
+      canvases.push(c);
+      c.width = Math.max(1, Math.round(sw / 2));
+      c.height = Math.max(1, Math.round(sh / 2));
+      const cx = c.getContext("2d");
+      if (!cx) throw new Error("Canvas is not supported in this browser");
+      cx.imageSmoothingEnabled = true;
+      cx.imageSmoothingQuality = "high";
+      cx.drawImage(source, sx, sy, sw, sh, 0, 0, c.width, c.height);
+      source = c;
+      sx = 0; sy = 0; sw = c.width; sh = c.height;
+    }
 
-  const quality = mime === "image/png" ? undefined : clampQuality(s.quality) / 100;
-  const blob = await toBlob(canvas, mime, quality);
-  canvas.width = 0;
-  canvas.height = 0;
-  return { blob, width: plan.width, height: plan.height, outputMime: blob.type || mime };
+    const canvas = document.createElement("canvas");
+    canvases.push(canvas);
+    canvas.width = plan.width;
+    canvas.height = plan.height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Canvas is not supported in this browser");
+    if (plan.padded || mime === "image/jpeg") {
+      if (mime === "image/jpeg" || s.background !== "transparent") {
+        ctx.fillStyle = s.background === "transparent" ? "#ffffff" : s.background;
+        ctx.fillRect(0, 0, plan.width, plan.height);
+      }
+    }
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(source, sx, sy, sw, sh, plan.dx, plan.dy, plan.dw, plan.dh);
+    const quality = mime === "image/png" ? undefined : clampQuality(s.quality) / 100;
+    const blob = await toBlob(canvas, mime, quality);
+    return { blob, width: plan.width, height: plan.height, outputMime: blob.type || mime };
+  } finally {
+    bitmap.close();
+    canvases.forEach((canvas) => { canvas.width = 0; canvas.height = 0; });
+  }
 }

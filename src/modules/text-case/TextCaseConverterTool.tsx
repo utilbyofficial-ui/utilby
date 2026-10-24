@@ -21,16 +21,32 @@ import { CopyButton } from "@/components/shared/CopyButton";
 import { ClearButton } from "@/components/shared/ClearButton";
 import { Trash2, Scissors, Undo2, Upload, Download, Sparkles } from "lucide-react";
 
+const MAX_TEXT_LENGTH = 1_000_000;
+const MAX_TEXT_FILE_BYTES = 1_000_000;
+const MAX_HISTORY_CHARACTERS = 2_000_000;
+
 export function TextCaseConverterTool() {
   const [text, setText] = React.useState(
     "the quick brown fox jumps over the lazy dog. converting text cases has never been easier!"
   );
   const [history, setHistory] = React.useState<string[]>([]);
+  const [fileError, setFileError] = React.useState("");
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const updateTextWithHistory = (newText: string) => {
     if (newText === text) return;
-    setHistory((prev) => [...prev.slice(-19), text]);
+    if (text.length > MAX_HISTORY_CHARACTERS) {
+      setHistory([]);
+    } else {
+      setHistory((prev) => {
+        const next = [...prev, text];
+        let characters = next.reduce((sum, value) => sum + value.length, 0);
+        while (next.length > 20 || characters > MAX_HISTORY_CHARACTERS) {
+          characters -= next.shift()!.length;
+        }
+        return next;
+      });
+    }
     setText(newText);
   };
 
@@ -43,15 +59,20 @@ export function TextCaseConverterTool() {
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const content = event.target?.result;
-      if (typeof content === "string") {
+    if (!file) { e.target.value = ""; return; }
+    setFileError("");
+    if (file.size > MAX_TEXT_FILE_BYTES) {
+      setFileError("Text files are limited to 1 MB for responsive case conversion.");
+      e.target.value = "";
+      return;
+    }
+    void file.text().then((content) => {
+      if (content.length > MAX_TEXT_LENGTH) {
+        setFileError("This file contains more than 1,000,000 characters.");
+      } else {
         updateTextWithHistory(content);
       }
-    };
-    reader.readAsText(file);
+    }).catch(() => setFileError("The selected file could not be read."));
     e.target.value = "";
   };
 
@@ -64,7 +85,7 @@ export function TextCaseConverterTool() {
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
   const characterCount = text.length;
@@ -240,7 +261,9 @@ export function TextCaseConverterTool() {
 
       {/* Main Text Area */}
       <div className="mt-4">
+        {fileError && <p role="alert" className="mb-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700">{fileError}</p>}
         <textarea
+          maxLength={MAX_TEXT_LENGTH}
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder="Type or paste your text here to convert case or format..."

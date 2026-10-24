@@ -64,6 +64,11 @@ import {
 const COLORS = ["#16141F", "#E11D48", "#2563EB", "#16A34A", "#D97706", "#9333EA", "#FFFFFF"];
 const HIGHLIGHTS = ["#FACC15", "#4ADE80", "#60A5FA", "#F472B6"];
 const FONT_SIZES = [8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 32, 36, 48, 60, 72];
+const MAX_PDF_BYTES = 100 * 1024 * 1024;
+const MAX_PDF_PAGES = 500;
+const MAX_CANVAS_PIXELS = 32_000_000;
+const MAX_DISPLAY_PIXELS = 8_000_000;
+const MAX_DISPLAY_DIMENSION = 8192;
 
 type FontFamily = "Helvetica" | "Times" | "Courier";
 
@@ -174,6 +179,9 @@ export function PdfEditorTool() {
   const gestureRef = React.useRef<Gesture | null>(null);
   const detectedRef = React.useRef<Record<number, ExistingTextItem[]>>({});
   const toastTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const loadGeneration = React.useRef(0);
+
+  React.useEffect(() => () => { loadGeneration.current++; }, []);
 
   const notify = React.useCallback((msg: string, tone: "info" | "success" | "error" = "info") => {
     setToast({ msg, tone });
@@ -235,13 +243,27 @@ export function PdfEditorTool() {
       setLoadError("Please choose a PDF file.");
       return;
     }
+    if (f.size > MAX_PDF_BYTES) {
+      setLoadError("This PDF is larger than the 100 MB processing limit.");
+      return;
+    }
+    const generation = ++loadGeneration.current;
     setLoading(true);
     setLoadError("");
+    setDoc(null);
     try {
       const bytes = new Uint8Array(await f.arrayBuffer());
+      if (generation !== loadGeneration.current) return;
       const pdfjs = await getPdfjs();
       const pdf = await pdfjs.getDocument({ data: bytes.slice(), isEvalSupported: false }).promise;
-      doc?.pdf.destroy().catch(() => undefined);
+      if (generation !== loadGeneration.current) {
+        await pdf.destroy();
+        return;
+      }
+      if (pdf.numPages > MAX_PDF_PAGES) {
+        await pdf.destroy();
+        throw new Error(`This tool supports up to ${MAX_PDF_PAGES} pages per PDF. Split the document first.`);
+      }
       histRef.current = { past: [], future: [] };
       setLiveState([], {});
       detectedRef.current = {};
@@ -253,14 +275,17 @@ export function PdfEditorTool() {
       setTool("select");
       setDoc({ name: f.name, bytes, pdf, numPages: pdf.numPages });
     } catch (err) {
+      if (generation !== loadGeneration.current) return;
       const name = (err as { name?: string })?.name;
       setLoadError(
-        name === "PasswordException"
+        err instanceof Error && err.message.startsWith("This tool supports")
+          ? err.message
+          : name === "PasswordException"
           ? "This PDF is password-protected. Remove the password first (open it, then Print → Save as PDF)."
           : "This PDF couldn't be opened. The file may be damaged."
       );
     } finally {
-      setLoading(false);
+      if (generation === loadGeneration.current) setLoading(false);
     }
   };
 
@@ -276,7 +301,10 @@ export function PdfEditorTool() {
   }, [doc]);
 
   const fitScale = pageSize ? Math.min(1.6, Math.max(0.3, (containerW - 24) / pageSize.w)) : 1;
-  const scale = fitScale * zoom; // CSS px per PDF point
+  const maxSafeScale = pageSize
+    ? Math.min(MAX_DISPLAY_DIMENSION / pageSize.w, MAX_DISPLAY_DIMENSION / pageSize.h, Math.sqrt(MAX_DISPLAY_PIXELS / (pageSize.w * pageSize.h)))
+    : 4.8;
+  const scale = Math.min(fitScale * zoom, maxSafeScale); // CSS px per PDF point
   const dispW = pageSize ? pageSize.w * scale : 0;
   const dispH = pageSize ? pageSize.h * scale : 0;
 
@@ -291,17 +319,35 @@ export function PdfEditorTool() {
         const page = await doc.pdf.getPage(pageIndex + 1);
         if (cancelled) return;
         const base = page.getViewport({ scale: 1 });
+        if (!Number.isFinite(base.width) || !Number.isFinite(base.height) || !Number.isFinite(base.width * base.height) || base.width <= 0 || base.height <= 0) {
+          page.cleanup();
+          notify("This PDF page has unsupported dimensions.", "error");
+          return;
+        }
         setPageSize((s) => (s && s.w === base.width && s.h === base.height ? s : { w: base.width, h: base.height }));
-        const effScale = (Math.min(1.6, Math.max(0.3, (containerW - 24) / base.width))) * zoom;
+        const requestedScale = (Math.min(1.6, Math.max(0.3, (containerW - 24) / base.width))) * zoom;
+        const safeScale = Math.min(
+          MAX_DISPLAY_DIMENSION / base.width,
+          MAX_DISPLAY_DIMENSION / base.height,
+          Math.sqrt(MAX_DISPLAY_PIXELS / (base.width * base.height))
+        );
+        const effScale = Math.min(requestedScale, safeScale);
         const vp = page.getViewport({ scale: effScale });
         const canvas = canvasRef.current;
         if (!canvas) return;
-        const dpr = Math.min(2, window.devicePixelRatio || 1);
+        const desiredDpr = Math.min(2, window.devicePixelRatio || 1);
+        const dpr = Math.min(
+          desiredDpr,
+          16384 / vp.width,
+          16384 / vp.height,
+          Math.sqrt(MAX_CANVAS_PIXELS / (vp.width * vp.height))
+        );
         canvas.width = Math.ceil(vp.width * dpr);
         canvas.height = Math.ceil(vp.height * dpr);
         canvas.style.width = `${vp.width}px`;
         canvas.style.height = `${vp.height}px`;
-        const ctx = canvas.getContext("2d", { willReadFrequently: true })!;
+        const ctx = canvas.getContext("2d", { willReadFrequently: true });
+        if (!ctx) throw new Error("Canvas is not supported in this browser.");
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         ctx.fillStyle = "#ffffff";
         ctx.fillRect(0, 0, vp.width, vp.height);
@@ -346,7 +392,10 @@ export function PdfEditorTool() {
           setDetected(detectedRef.current);
         }
       } catch (err) {
-        if ((err as { name?: string })?.name !== "RenderingCancelledException") console.error(err);
+        if ((err as { name?: string })?.name !== "RenderingCancelledException") {
+          console.error(err);
+          notify("This PDF page could not be rendered. Try reopening the document or reducing the zoom.", "error");
+        }
       } finally {
         if (!cancelled) setRendering(false);
       }
@@ -359,7 +408,7 @@ export function PdfEditorTool() {
         // ignore
       }
     };
-  }, [doc, pageIndex, zoom, containerW]);
+  }, [doc, pageIndex, zoom, containerW, notify]);
 
   // ---------- derived ----------
   const pageAnns = annotations.filter((a) => a.pageIndex === pageIndex);
@@ -829,7 +878,7 @@ export function PdfEditorTool() {
           </span>
           <p className="font-display text-xl font-bold text-ink">{loading ? "Opening your PDF…" : "Drop a PDF here or click to choose"}</p>
           <p className="mt-2 max-w-md text-sm text-slate-600">
-            Edit existing text, add text and images, resize and move anything, sign, draw and highlight.
+            Edit existing text, add text and images, resize and move anything, sign, draw and highlight. PDFs up to 100 MB and 500 pages.
           </p>
           <input
             ref={fileInputRef}

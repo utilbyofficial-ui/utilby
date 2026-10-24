@@ -1,8 +1,9 @@
-export function calculatePercentageOf(percent: number, total: number): { result: number; formula: string } {
-  if (isNaN(percent) || isNaN(total)) {
-    return { result: 0, formula: "" };
+export function calculatePercentageOf(percent: number, total: number): { result: number; formula: string } | { error: string } {
+  if (!Number.isFinite(percent) || !Number.isFinite(total)) {
+    return { error: "Enter finite numbers to calculate a percentage." };
   }
   const result = (percent / 100) * total;
+  if (!Number.isFinite(result)) return { error: "The result is outside the supported numeric range." };
   return {
     result: Number(result.toFixed(4)),
     formula: `(${percent} ÷ 100) × ${total} = ${Number(result.toFixed(4))}`,
@@ -10,13 +11,14 @@ export function calculatePercentageOf(percent: number, total: number): { result:
 }
 
 export function calculateWhatPercentageIs(part: number, whole: number): { result: number; formula: string } | { error: string } {
-  if (isNaN(part) || isNaN(whole)) {
-    return { result: 0, formula: "" };
+  if (!Number.isFinite(part) || !Number.isFinite(whole)) {
+    return { error: "Enter finite numbers to calculate a percentage." };
   }
   if (whole === 0) {
     return { error: "Division by zero is not allowed. Total cannot be 0." };
   }
   const result = (part / whole) * 100;
+  if (!Number.isFinite(result)) return { error: "The result is outside the supported numeric range." };
   return {
     result: Number(result.toFixed(4)),
     formula: `(${part} ÷ ${whole}) × 100 = ${Number(result.toFixed(4))}%`,
@@ -31,13 +33,8 @@ export interface PercentageChangeResult {
 }
 
 export function calculatePercentageChange(initialValue: number, finalValue: number): PercentageChangeResult | { error: string } {
-  if (isNaN(initialValue) || isNaN(finalValue)) {
-    return {
-      percentChange: 0,
-      type: "no-change",
-      difference: 0,
-      formula: "",
-    };
+  if (!Number.isFinite(initialValue) || !Number.isFinite(finalValue)) {
+    return { error: "Enter finite numbers to calculate percentage change." };
   }
   if (initialValue === 0) {
     return { error: "Initial value cannot be 0 for percentage change calculation." };
@@ -45,6 +42,9 @@ export function calculatePercentageChange(initialValue: number, finalValue: numb
 
   const difference = finalValue - initialValue;
   const percentChange = (difference / Math.abs(initialValue)) * 100;
+  if (!Number.isFinite(difference) || !Number.isFinite(percentChange)) {
+    return { error: "The result is outside the supported numeric range." };
+  }
   const type = difference > 0 ? "increase" : difference < 0 ? "decrease" : "no-change";
 
   return {
@@ -61,9 +61,9 @@ export interface DiscountResult {
   savingsFormula: string;
 }
 
-export function calculateDiscount(originalPrice: number, discountPercent: number): DiscountResult {
-  if (isNaN(originalPrice) || isNaN(discountPercent) || originalPrice < 0) {
-    return { discountAmount: 0, finalPrice: 0, savingsFormula: "" };
+export function calculateDiscount(originalPrice: number, discountPercent: number): DiscountResult | { error: string } {
+  if (!Number.isFinite(originalPrice) || !Number.isFinite(discountPercent) || originalPrice < 0 || discountPercent < 0 || discountPercent > 100) {
+    return { error: "Enter a non-negative price and a discount between 0% and 100%." };
   }
   const discountAmount = (discountPercent / 100) * originalPrice;
   const finalPrice = Math.max(0, originalPrice - discountAmount);

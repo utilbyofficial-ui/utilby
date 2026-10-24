@@ -22,6 +22,24 @@ const NUMBERS_CHARS = "0123456789";
 const SYMBOLS_CHARS = "!@#$%^&*()_+-=[]{}|;:,.<>?";
 const AMBIGUOUS_CHARS = new Set(["{", "}", "[", "]", "(", ")", "/", "\\", "'", '"', "`", "~", ",", ";", ":", ".", "<", ">", "l", "1", "I", "O", "0", "o"]);
 
+/** Returns an unbiased cryptographically secure integer in [0, max). */
+function secureRandomInt(max: number): number {
+  if (!Number.isSafeInteger(max) || max < 1 || max > 0x1_0000_0000) {
+    throw new RangeError("The requested random range is invalid.");
+  }
+  const cryptoApi = globalThis.crypto;
+  if (!cryptoApi || typeof cryptoApi.getRandomValues !== "function") {
+    throw new Error("Secure random number generation is unavailable in this browser.");
+  }
+  const range = 0x1_0000_0000;
+  const limit = Math.floor(range / max) * max;
+  const value = new Uint32Array(1);
+  do {
+    cryptoApi.getRandomValues(value);
+  } while (value[0]! >= limit);
+  return value[0]! % max;
+}
+
 function filterChars(charSet: string, excludeAmbiguous: boolean): string {
   if (!excludeAmbiguous) return charSet;
   return charSet
@@ -35,7 +53,7 @@ export function calculatePasswordEntropy(password: string, poolSize: number): {
   strength: "Very Weak" | "Weak" | "Strong" | "Very Strong";
   colorClass: string;
 } {
-  if (!password || poolSize <= 0) {
+  if (!password || !Number.isFinite(poolSize) || poolSize <= 0) {
     return { entropy: 0, strength: "Very Weak", colorClass: "text-red-500" };
   }
 
@@ -68,7 +86,8 @@ export function generateSecureRandomPassword(options: PasswordOptions): { passwo
     fullPool = lower;
   }
 
-  const length = Math.max(6, Math.min(64, options.length));
+  const requestedLength = Number.isFinite(options.length) ? options.length : DEFAULT_PASSWORD_OPTIONS.length;
+  const length = Math.max(6, Math.min(64, Math.round(requestedLength)));
   const chars: string[] = [];
 
   // Guarantee at least one character from each active category
@@ -78,40 +97,23 @@ export function generateSecureRandomPassword(options: PasswordOptions): { passwo
   if (numbers) guaranteedPools.push(numbers);
   if (symbols) guaranteedPools.push(symbols);
 
-  // Secure randomness buffer using crypto
-  const getRandomUint32 = (): number => {
-    if (typeof window !== "undefined" && window.crypto && window.crypto.getRandomValues) {
-      const arr = new Uint32Array(1);
-      window.crypto.getRandomValues(arr);
-      return arr[0]!;
-    }
-    // Node.js or fallback
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const cryptoNode = require("crypto");
-      return cryptoNode.randomInt(0, 0xffffffff);
-    } catch {
-      return Math.floor(Math.random() * 0xffffffff);
-    }
-  };
-
   // Add guaranteed chars
   for (const pool of guaranteedPools) {
     if (chars.length < length) {
-      const randIndex = getRandomUint32() % pool.length;
+      const randIndex = secureRandomInt(pool.length);
       chars.push(pool[randIndex]!);
     }
   }
 
   // Fill remaining length
   while (chars.length < length) {
-    const randIndex = getRandomUint32() % fullPool.length;
+    const randIndex = secureRandomInt(fullPool.length);
     chars.push(fullPool[randIndex]!);
   }
 
   // Fisher-Yates shuffle with CSPRNG
   for (let i = chars.length - 1; i > 0; i--) {
-    const j = getRandomUint32() % (i + 1);
+    const j = secureRandomInt(i + 1);
     const temp = chars[i]!;
     chars[i] = chars[j]!;
     chars[j] = temp;
@@ -124,7 +126,7 @@ export function generateSecureRandomPassword(options: PasswordOptions): { passwo
 }
 
 export function generateMultiplePasswords(count: number, options: PasswordOptions): string[] {
-  const safeCount = Math.max(1, Math.min(10, count));
+  const safeCount = Math.max(1, Math.min(10, Math.round(Number.isFinite(count) ? count : 1)));
   const passwords: string[] = [];
   for (let i = 0; i < safeCount; i++) {
     passwords.push(generateSecureRandomPassword(options).password);
@@ -152,20 +154,11 @@ export function generatePassphrase(
   capitalize: boolean = false,
   includeNumber: boolean = true
 ): string {
-  const safeCount = Math.max(3, Math.min(8, wordCount));
+  const safeCount = Math.max(3, Math.min(8, Math.round(Number.isFinite(wordCount) ? wordCount : 4)));
   const words: string[] = [];
 
-  const getRandomIndex = (max: number): number => {
-    if (typeof window !== "undefined" && window.crypto && window.crypto.getRandomValues) {
-      const arr = new Uint32Array(1);
-      window.crypto.getRandomValues(arr);
-      return arr[0]! % max;
-    }
-    return Math.floor(Math.random() * max);
-  };
-
   for (let i = 0; i < safeCount; i++) {
-    let word = PASSPHRASE_WORDS[getRandomIndex(PASSPHRASE_WORDS.length)]!;
+    let word = PASSPHRASE_WORDS[secureRandomInt(PASSPHRASE_WORDS.length)]!;
     if (capitalize) {
       word = word.charAt(0).toUpperCase() + word.slice(1);
     }
@@ -174,7 +167,7 @@ export function generatePassphrase(
 
   let result = words.join(separator);
   if (includeNumber) {
-    const num = getRandomIndex(100);
+    const num = secureRandomInt(100);
     result += `${separator}${num}`;
   }
   return result;

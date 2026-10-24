@@ -58,7 +58,7 @@ export function escapeWifiValue(value: string): string {
 export function escapeVCardValue(value: string): string {
   return value
     .replace(/\\/g, "\\\\")
-    .replace(/\n/g, "\\n")
+    .replace(/\r\n?|\n/g, "\\n")
     .replace(/,/g, "\\,")
     .replace(/;/g, "\\;");
 }
@@ -87,7 +87,8 @@ export function buildEmailPayload(data: EmailData): string {
   const params: string[] = [];
   if (data.subject) params.push(`subject=${encodeURIComponent(data.subject)}`);
   if (data.body) params.push(`body=${encodeURIComponent(data.body)}`);
-  return `mailto:${to}${params.length ? `?${params.join("&")}` : ""}`;
+  const safeTo = encodeURIComponent(to).replace("%40", "@");
+  return `mailto:${safeTo}${params.length ? `?${params.join("&")}` : ""}`;
 }
 
 export function cleanPhone(phone: string): string {
@@ -102,7 +103,7 @@ export function buildPhonePayload(phone: string): string {
 export function buildSmsPayload(data: SmsData): string {
   const cleaned = cleanPhone(data.phone);
   if (!cleaned) return "";
-  return data.message ? `SMSTO:${cleaned}:${data.message}` : `SMSTO:${cleaned}`;
+  return data.message ? `SMSTO:${cleaned}:${encodeURIComponent(data.message)}` : `SMSTO:${cleaned}`;
 }
 
 export function buildVCardPayload(data: VCardData): string {
@@ -119,7 +120,7 @@ export function buildVCardPayload(data: VCardData): string {
   if (data.organization.trim()) lines.push(`ORG:${escapeVCardValue(data.organization.trim())}`);
   if (data.title.trim()) lines.push(`TITLE:${escapeVCardValue(data.title.trim())}`);
   if (cleanPhone(data.phone)) lines.push(`TEL;TYPE=CELL:${cleanPhone(data.phone)}`);
-  if (data.email.trim()) lines.push(`EMAIL:${data.email.trim()}`);
+  if (data.email.trim()) lines.push(`EMAIL:${escapeVCardValue(data.email.trim())}`);
   if (data.website.trim()) lines.push(`URL:${normalizeUrl(data.website)}`);
   if (data.address.trim()) lines.push(`ADR;TYPE=HOME:;;${escapeVCardValue(data.address.trim())};;;;`);
   lines.push("END:VCARD");

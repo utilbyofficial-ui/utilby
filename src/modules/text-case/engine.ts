@@ -9,7 +9,7 @@ export function toLowerCase(text: string): string {
 export function toTitleCase(text: string): string {
   const minorWords = new Set(["a", "an", "the", "and", "but", "or", "for", "nor", "on", "at", "to", "from", "by", "over", "in", "of", "with"]);
 
-  return text.replace(/\w\S*/g, (word, index) => {
+  return text.replace(/[\p{L}\p{N}][^\s]*/gu, (word, index) => {
     const lower = word.toLowerCase();
     if (index !== 0 && minorWords.has(lower)) {
       return lower;
@@ -19,18 +19,18 @@ export function toTitleCase(text: string): string {
 }
 
 export function toSentenceCase(text: string): string {
-  return text.toLowerCase().replace(/(^\s*\w|[.!?]\s*\w)/g, (c) => c.toUpperCase());
+  return text.toLowerCase().replace(/(^\s*[\p{L}\p{N}]|[.!?]\s*[\p{L}\p{N}])/gu, (c) => c.toUpperCase());
 }
 
 export function toCapitalizedWords(text: string): string {
-  return text.replace(/\b\w/g, (char) => char.toUpperCase());
+  return text.replace(/(^|[^\p{L}\p{N}])([\p{L}\p{N}])/gu, (_match, prefix: string, char: string) => prefix + char.toUpperCase());
 }
 
 function getWords(text: string): string[] {
   return text
-    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/([\p{Ll}])([\p{Lu}])/gu, "$1 $2")
     .replace(/[_\-]+/g, " ")
-    .split(/[^a-zA-Z0-9]+/g)
+    .split(/[^\p{L}\p{M}\p{N}]+/gu)
     .filter(Boolean);
 }
 

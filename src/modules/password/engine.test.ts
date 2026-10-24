@@ -1,6 +1,7 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   generateSecureRandomPassword,
+  generateMultiplePasswords,
   calculatePasswordEntropy,
   generatePassphrase,
   DEFAULT_PASSWORD_OPTIONS,
@@ -33,5 +34,21 @@ describe("Password Generator Engine", () => {
     const passphrase = generatePassphrase(4, "-", true, true);
     const parts = passphrase.split("-");
     expect(parts.length).toBe(5); // 4 words + 1 number
+  });
+
+  it("fails closed when cryptographic randomness is unavailable", () => {
+    vi.stubGlobal("crypto", undefined);
+    try {
+      expect(() => generateSecureRandomPassword(DEFAULT_PASSWORD_OPTIONS)).toThrow(/Secure random/);
+      expect(() => generatePassphrase()).toThrow(/Secure random/);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("normalizes invalid lengths and batch sizes", () => {
+    expect(generateSecureRandomPassword({ ...DEFAULT_PASSWORD_OPTIONS, length: Number.NaN }).password).toHaveLength(16);
+    expect(generateMultiplePasswords(Number.NaN, DEFAULT_PASSWORD_OPTIONS)).toHaveLength(1);
+    expect(generatePassphrase(Number.NaN).split("-")).toHaveLength(5);
   });
 });

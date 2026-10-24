@@ -11,7 +11,7 @@ import {
 } from "./engine";
 import { Button } from "@/components/ui/Button";
 import { CopyButton } from "@/components/shared/CopyButton";
-import { RefreshCw, ShieldCheck, KeyRound, BookOpen, Copy } from "lucide-react";
+import { RefreshCw, ShieldCheck, KeyRound, BookOpen, Copy, AlertTriangle } from "lucide-react";
 
 export function PasswordGeneratorTool() {
   const [mode, setMode] = React.useState<"random" | "passphrase">("random");
@@ -20,6 +20,7 @@ export function PasswordGeneratorTool() {
   const [poolSize, setPoolSize] = React.useState<number>(62);
   const [multiCount, setMultiCount] = React.useState<number>(1);
   const [multiPasswords, setMultiPasswords] = React.useState<string[]>([]);
+  const [generationError, setGenerationError] = React.useState("");
 
   // Passphrase options
   const [passphraseWords, setPassphraseWords] = React.useState<number>(4);
@@ -28,25 +29,29 @@ export function PasswordGeneratorTool() {
 
   // Generate password initially and whenever options change
   const refreshPassword = React.useCallback(() => {
-    if (mode === "random") {
-      const res = generateSecureRandomPassword(options);
-      setPassword(res.password);
-      setPoolSize(res.poolSize);
-
-      if (multiCount > 1) {
-        setMultiPasswords(generateMultiplePasswords(multiCount, options));
+    try {
+      if (mode === "random") {
+        const res = generateSecureRandomPassword(options);
+        setPassword(res.password);
+        setPoolSize(res.poolSize);
+        if (multiCount > 1) setMultiPasswords(generateMultiplePasswords(multiCount, options));
+      } else {
+        const p = generatePassphrase(passphraseWords, "-", passphraseCapitalize, passphraseIncludeNumber);
+        setPassword(p);
+        setPoolSize(90);
+        if (multiCount > 1) {
+          setMultiPasswords(
+            Array.from({ length: multiCount }, () =>
+              generatePassphrase(passphraseWords, "-", passphraseCapitalize, passphraseIncludeNumber)
+            )
+          );
+        }
       }
-    } else {
-      const p = generatePassphrase(passphraseWords, "-", passphraseCapitalize, passphraseIncludeNumber);
-      setPassword(p);
-      setPoolSize(90); // approximate pool for passphrase
-      if (multiCount > 1) {
-        setMultiPasswords(
-          Array.from({ length: multiCount }, () =>
-            generatePassphrase(passphraseWords, "-", passphraseCapitalize, passphraseIncludeNumber)
-          )
-        );
-      }
+      setGenerationError("");
+    } catch (error) {
+      setPassword("");
+      setMultiPasswords([]);
+      setGenerationError(error instanceof Error ? error.message : "Secure password generation failed. Please try again.");
     }
   }, [mode, options, multiCount, passphraseWords, passphraseCapitalize, passphraseIncludeNumber]);
 
@@ -96,6 +101,12 @@ export function PasswordGeneratorTool() {
       </div>
 
       {/* Primary Display Box */}
+      {generationError && (
+        <div role="alert" className="mb-4 flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800 dark:border-rose-800 dark:bg-rose-950/30 dark:text-rose-200">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>{generationError}</span>
+        </div>
+      )}
       <div className="relative rounded-2xl border border-slate-700 bg-slate-900 p-4 sm:p-6 text-white shadow-inner dark:border-slate-800">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex-1 overflow-x-auto py-2">
@@ -182,9 +193,6 @@ export function PasswordGeneratorTool() {
                     type="button"
                     onClick={() => {
                       setMultiCount(num);
-                      if (num > 1) {
-                        setMultiPasswords(generateMultiplePasswords(num, options));
-                      }
                     }}
                     className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
                       multiCount === num
