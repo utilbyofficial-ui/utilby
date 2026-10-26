@@ -70,13 +70,12 @@ export function fitWithin(width: number, height: number, maxEdge: number): { wid
 
 export function clampPreviewZoom(zoom: number): number {
   if (!Number.isFinite(zoom)) return 100;
-  const stepped = Math.round(zoom / PREVIEW_ZOOM_STEP) * PREVIEW_ZOOM_STEP;
-  return Math.max(MIN_PREVIEW_ZOOM, Math.min(MAX_PREVIEW_ZOOM, stepped));
+  return Math.max(MIN_PREVIEW_ZOOM, Math.min(MAX_PREVIEW_ZOOM, Math.round(zoom * 10) / 10));
 }
 
 export function zoomPreviewByWheel(currentZoom: number, deltaY: number): number {
   if (!Number.isFinite(deltaY) || deltaY === 0) return clampPreviewZoom(currentZoom);
-  return clampPreviewZoom(currentZoom + (deltaY < 0 ? PREVIEW_ZOOM_STEP : -PREVIEW_ZOOM_STEP));
+  return clampPreviewZoom(currentZoom * Math.exp(-deltaY * 0.0013));
 }
 
 export function getPreviewDisplaySize(

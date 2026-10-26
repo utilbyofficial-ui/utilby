@@ -62,6 +62,7 @@ type WorkerReply = {
   height?: number;
   alpha?: ArrayBuffer;
 };
+type PreviewZoomAnchor = { imageX: number; imageY: number; viewportX: number; viewportY: number };
 
 const MAX_PREVIEW_EDGE = 1_536;
 const MAX_HISTORY_STEPS = 8;
@@ -140,6 +141,7 @@ export function BackgroundRemoverTool() {
   const previewCanvasRef = React.useRef<HTMLCanvasElement>(null);
   const previewViewportRef = React.useRef<HTMLDivElement>(null);
   const brushCursorRef = React.useRef<HTMLDivElement>(null);
+  const zoomAnchorRef = React.useRef<PreviewZoomAnchor | null>(null);
   const jobIdRef = React.useRef(0);
   const brushPointerRef = React.useRef<{ id: number; point: { x: number; y: number }; rect: DOMRect } | null>(null);
   const renderFrameRef = React.useRef<number | null>(null);
@@ -164,6 +166,24 @@ export function BackgroundRemoverTool() {
     observer.observe(viewport);
     return () => observer.disconnect();
   }, [dimensions, hasResult]);
+
+  React.useLayoutEffect(() => {
+    const anchor = zoomAnchorRef.current;
+    if (!anchor) return;
+    zoomAnchorRef.current = null;
+    const viewport = previewViewportRef.current;
+    const canvas = previewCanvasRef.current;
+    if (!viewport || !canvas) return;
+
+    const viewportRect = viewport.getBoundingClientRect();
+    const canvasRect = canvas.getBoundingClientRect();
+    const contentLeft = viewportRect.left + viewport.clientLeft;
+    const contentTop = viewportRect.top + viewport.clientTop;
+    const imageLeft = canvasRect.left - contentLeft + viewport.scrollLeft;
+    const imageTop = canvasRect.top - contentTop + viewport.scrollTop;
+    viewport.scrollLeft = Math.max(0, imageLeft + anchor.imageX * canvasRect.width - anchor.viewportX);
+    viewport.scrollTop = Math.max(0, imageTop + anchor.imageY * canvasRect.height - anchor.viewportY);
+  }, [zoomPercent]);
 
   React.useEffect(() => {
     if (compare) setShowBrushCursor(false);
@@ -215,6 +235,7 @@ export function BackgroundRemoverTool() {
     setCompare(false);
     setManualControl(false);
     setZoomPercent(100);
+    zoomAnchorRef.current = null;
     setPreviewBaseSize(null);
     setShowBrushCursor(false);
     setCanUndo(false);
@@ -339,6 +360,7 @@ export function BackgroundRemoverTool() {
     setPreviewBaseSize(null);
     setShowBrushCursor(false);
     setZoomPercent(100);
+    zoomAnchorRef.current = null;
     setBackend(null);
     setBackgroundName("");
     setBackgroundMode("transparent");
@@ -474,8 +496,21 @@ export function BackgroundRemoverTool() {
   const handlePreviewWheel = (event: React.WheelEvent<HTMLCanvasElement>) => {
     if (!hasResult || event.deltaY === 0) return;
     event.preventDefault();
-    const deltaY = event.deltaY;
-    setZoomPercent((current) => zoomPreviewByWheel(current, deltaY));
+    const viewport = previewViewportRef.current;
+    const viewportRect = viewport?.getBoundingClientRect();
+    const canvasRect = event.currentTarget.getBoundingClientRect();
+    const nextZoom = zoomPreviewByWheel(zoomPercent, event.deltaY);
+    if (nextZoom === zoomPercent || !viewport || !viewportRect) {
+      zoomAnchorRef.current = null;
+      return;
+    }
+    zoomAnchorRef.current = {
+      imageX: Math.max(0, Math.min(1, (event.clientX - canvasRect.left) / Math.max(1, canvasRect.width))),
+      imageY: Math.max(0, Math.min(1, (event.clientY - canvasRect.top) / Math.max(1, canvasRect.height))),
+      viewportX: event.clientX - viewportRect.left - viewport.clientLeft,
+      viewportY: event.clientY - viewportRect.top - viewport.clientTop,
+    };
+    setZoomPercent(nextZoom);
     setShowBrushCursor(false);
   };
 
@@ -595,6 +630,7 @@ export function BackgroundRemoverTool() {
   };
 
   const changeZoom = (amount: number) => {
+    zoomAnchorRef.current = null;
     setZoomPercent((current) => clampPreviewZoom(current + amount));
     setShowBrushCursor(false);
   };
@@ -650,9 +686,9 @@ export function BackgroundRemoverTool() {
                   <>
                     <div className="flex items-center gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1" aria-label="Image zoom controls">
                       <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => changeZoom(-PREVIEW_ZOOM_STEP)} disabled={zoomPercent <= MIN_PREVIEW_ZOOM} aria-label="Zoom out" title="Zoom out"><ZoomOut className="h-4 w-4" /></Button>
-                      <span className="min-w-[3.25rem] text-center text-xs font-semibold tabular-nums text-slate-700" aria-live="polite">{zoomPercent}%</span>
+                      <span className="min-w-[3.25rem] text-center text-xs font-semibold tabular-nums text-slate-700" aria-live="polite">{Math.round(zoomPercent)}%</span>
                       <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => changeZoom(PREVIEW_ZOOM_STEP)} disabled={zoomPercent >= MAX_PREVIEW_ZOOM} aria-label="Zoom in" title="Zoom in"><ZoomIn className="h-4 w-4" /></Button>
-                      <Button variant="ghost" size="sm" className="h-8 px-2 text-xs" onClick={() => { setZoomPercent(100); setShowBrushCursor(false); }} disabled={zoomPercent === 100}>Fit</Button>
+                      <Button variant="ghost" size="sm" className="h-8 px-2 text-xs" onClick={() => { zoomAnchorRef.current = null; setZoomPercent(100); setShowBrushCursor(false); }} disabled={zoomPercent === 100}>Fit</Button>
                     </div>
                     <Button variant={compare ? "primary" : "outline"} size="sm" onClick={() => setCompare((value) => !value)} aria-pressed={compare}>
                       {compare ? "Editing" : "Compare"}
@@ -664,9 +700,9 @@ export function BackgroundRemoverTool() {
             </div>
 
             <div className="bg-slate-50 p-3 sm:p-5">
-              <div ref={previewViewportRef} className={`flex h-[68vh] min-h-[280px] max-h-[640px] overflow-auto rounded-2xl border border-slate-200 bg-white p-2 sm:p-4 ${zoomPercent > 100 ? "items-start justify-start" : "items-center justify-center"}`} style={checkerboardStyle()}>
+              <div ref={previewViewportRef} className={`flex h-[68vh] min-h-[280px] max-h-[640px] overflow-auto rounded-2xl border border-slate-200 bg-white p-2 sm:p-4 ${hasResult ? "items-start justify-start" : "items-center justify-center"}`} style={checkerboardStyle()}>
                 {hasResult ? (
-                  <div className="relative inline-block shrink-0 overflow-hidden rounded-xl shadow-soft" style={{ width: previewDisplaySize?.width ?? 0, height: previewDisplaySize?.height ?? 0 }}>
+                  <div className="relative inline-block shrink-0 overflow-hidden rounded-xl shadow-soft" style={{ width: previewDisplaySize?.width ?? 0, height: previewDisplaySize?.height ?? 0, margin: "auto" }}>
                     <canvas
                       ref={previewCanvasRef}
                       aria-label={compare ? "Edited image preview" : brushMode === "erase" ? "Edited image; erase background with the brush" : "Edited image; restore subject with the brush"}
