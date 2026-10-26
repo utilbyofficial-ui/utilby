@@ -16,6 +16,47 @@ const HEIF_BRANDS = new Set([
 ]);
 const MAX_IMAGE_PIXELS = 32_000_000;
 const MAX_PREFLIGHT_BYTES = 8 * 1024 * 1024;
+const JPEG_START_OF_FRAME = new Set([0xc0, 0xc1, 0xc2, 0xc3, 0xc5, 0xc6, 0xc7, 0xc9, 0xca, 0xcb, 0xcd, 0xce, 0xcf]);
+
+async function readOutputDimensions(blob, format) {
+  const bytes = new Uint8Array(await blob.slice(0, Math.min(blob.size, 1024 * 1024)).arrayBuffer());
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+
+  if (
+    format === "image/png" &&
+    bytes.length >= 24 &&
+    bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47 &&
+    bytes[12] === 0x49 && bytes[13] === 0x48 && bytes[14] === 0x44 && bytes[15] === 0x52
+  ) {
+    return { width: view.getUint32(16), height: view.getUint32(20) };
+  }
+
+  if (format === "image/jpeg" && bytes.length >= 4 && bytes[0] === 0xff && bytes[1] === 0xd8) {
+    let offset = 2;
+    while (offset + 3 < bytes.length) {
+      if (bytes[offset] !== 0xff) {
+        offset += 1;
+        continue;
+      }
+      while (bytes[offset] === 0xff) offset += 1;
+      const marker = bytes[offset++];
+      if (marker === 0x00 || marker === 0xd9 || marker === 0xda) break;
+      if (marker === 0xd8 || marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7)) continue;
+      if (offset + 2 > bytes.length) break;
+
+      const segmentLength = view.getUint16(offset);
+      if (segmentLength < 2 || offset + segmentLength > bytes.length) break;
+      if (JPEG_START_OF_FRAME.has(marker) && segmentLength >= 7) {
+        const height = view.getUint16(offset + 3);
+        const width = view.getUint16(offset + 5);
+        if (width > 0 && height > 0) return { width, height };
+      }
+      offset += segmentLength;
+    }
+  }
+
+  return null;
+}
 
 function readBoxes(view, start, end) {
   const boxes = [];
@@ -103,7 +144,8 @@ self.addEventListener("message", async (event) => {
     if (!(blob instanceof Blob) || blob.size === 0) {
       throw new Error("The converter returned an empty image.");
     }
-    self.postMessage({ id, blob, dimensions });
+    const outputDimensions = (await readOutputDimensions(blob, format)) ?? dimensions;
+    self.postMessage({ id, blob, dimensions: outputDimensions });
   } catch (error) {
     self.postMessage({
       id,
