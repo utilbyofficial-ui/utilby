@@ -137,6 +137,8 @@ export function PdfEditorTool() {
   const [containerW, setContainerW] = React.useState(800);
   const [zoom, setZoom] = React.useState(1);
   const [rendering, setRendering] = React.useState(false);
+  const [compareMode, setCompareMode] = React.useState(false);
+  const [reviewOpen, setReviewOpen] = React.useState(false);
 
   const [tool, setTool] = React.useState<ToolMode>("select");
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
@@ -172,6 +174,7 @@ export function PdfEditorTool() {
   const [confirmReset, setConfirmReset] = React.useState(false);
 
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
+  const originalCanvasRef = React.useRef<HTMLCanvasElement>(null);
   const overlayRef = React.useRef<HTMLDivElement>(null);
   const wrapRef = React.useRef<HTMLDivElement>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -273,6 +276,8 @@ export function PdfEditorTool() {
       setEditingId(null);
       setPageIndex(0);
       setZoom(1);
+      setCompareMode(false);
+      setReviewOpen(false);
       setTool("select");
       setDoc({ name: f.name, bytes, pdf, numPages: pdf.numPages });
     } catch (err) {
@@ -301,7 +306,8 @@ export function PdfEditorTool() {
     return () => ro.disconnect();
   }, [doc]);
 
-  const fitScale = pageSize ? Math.min(1.6, Math.max(0.3, (containerW - 24) / pageSize.w)) : 1;
+  const pageAvailableWidth = compareMode ? (containerW - 56) / 2 : containerW - 24;
+  const fitScale = pageSize ? Math.min(1.6, Math.max(0.3, pageAvailableWidth / pageSize.w)) : 1;
   const maxSafeScale = pageSize
     ? Math.min(MAX_DISPLAY_DIMENSION / pageSize.w, MAX_DISPLAY_DIMENSION / pageSize.h, Math.sqrt(MAX_DISPLAY_PIXELS / (pageSize.w * pageSize.h)))
     : 4.8;
@@ -326,7 +332,7 @@ export function PdfEditorTool() {
           return;
         }
         setPageSize((s) => (s && s.w === base.width && s.h === base.height ? s : { w: base.width, h: base.height }));
-        const requestedScale = (Math.min(1.6, Math.max(0.3, (containerW - 24) / base.width))) * zoom;
+        const requestedScale = Math.min(1.6, Math.max(0.3, pageAvailableWidth / base.width)) * zoom;
         const safeScale = Math.min(
           MAX_DISPLAY_DIMENSION / base.width,
           MAX_DISPLAY_DIMENSION / base.height,
@@ -355,6 +361,17 @@ export function PdfEditorTool() {
         task = page.render({ canvasContext: ctx, viewport: vp }) as unknown as typeof task;
         await task!.promise;
         if (cancelled) return;
+
+        // In compare mode this canvas is a pixel-for-pixel copy of the original page. Edits stay
+        // in the HTML overlay, so the left side always remains an untouched reference.
+        const originalCanvas = originalCanvasRef.current;
+        if (compareMode && originalCanvas) {
+          originalCanvas.width = canvas.width;
+          originalCanvas.height = canvas.height;
+          originalCanvas.style.width = `${vp.width}px`;
+          originalCanvas.style.height = `${vp.height}px`;
+          originalCanvas.getContext("2d")?.drawImage(canvas, 0, 0);
+        }
 
         // Detect existing text once per page (after render so fonts and pixels are available)
         if (!detectedRef.current[pageIndex]) {
@@ -409,7 +426,7 @@ export function PdfEditorTool() {
         // ignore
       }
     };
-  }, [doc, pageIndex, zoom, containerW, notify]);
+  }, [doc, pageIndex, zoom, containerW, compareMode, pageAvailableWidth, notify]);
 
   // ---------- derived ----------
   const pageAnns = annotations.filter((a) => a.pageIndex === pageIndex);
@@ -916,6 +933,43 @@ export function PdfEditorTool() {
   }
 
   const activeHint = TOOLS.find((t) => t.id === tool)?.hint;
+  const reviewChanges: Array<{ id: string; pageIndex: number; title: string; approximate: boolean }> = [];
+  for (const item of Object.values(textEdits)) {
+    const changed = item.isDeleted || item.currentText !== item.originalText || item.normX !== item.origNormX || item.normY !== item.origNormY || item.styleChanged;
+    if (!changed) continue;
+    const original = item.originalText.replace(/\s+/g, " ").trim();
+    const current = item.currentText.replace(/\s+/g, " ").trim();
+    reviewChanges.push({
+      id: item.id,
+      pageIndex: item.pageIndex,
+      title: item.isDeleted ? `Removed: ${original.slice(0, 34)}` : item.currentText !== item.originalText ? `Edited: ${current.slice(0, 34)}` : "Text position or style changed",
+      approximate: !!item.bgPatchDataUrl,
+    });
+  }
+  for (const ann of annotations) {
+    const title = ann.type === "text"
+      ? `Added text: ${ann.text.replace(/\s+/g, " ").trim().slice(0, 34) || "New text"}`
+      : ann.type === "whiteout"
+      ? ann.dataUrl ? "Approximate background fill" : "Covered area"
+      : ann.type === "image"
+      ? "Added image"
+      : ann.type === "signature"
+      ? "Added signature"
+      : ann.type === "highlight"
+      ? "Highlight added"
+      : ann.type === "draw"
+      ? "Drawing added"
+      : `Added ${ann.type}`;
+    reviewChanges.push({ id: ann.id, pageIndex: ann.pageIndex, title, approximate: ann.type === "whiteout" && !!ann.dataUrl });
+  }
+  reviewChanges.sort((a, b) => a.pageIndex - b.pageIndex || a.title.localeCompare(b.title));
+  const focusReviewChange = (change: (typeof reviewChanges)[number]) => {
+    setPageIndex(change.pageIndex);
+    setSelectedId(change.id);
+    setEditingId(null);
+    setTool("select");
+    setCompareMode(true);
+  };
 
   return (
     <div className="rounded-3xl border border-slate-200 bg-white shadow-soft">
@@ -949,6 +1003,27 @@ export function PdfEditorTool() {
           </button>
           <button type="button" className="rounded-lg p-2 text-slate-600 hover:bg-slate-100 hover:text-ink disabled:opacity-40" onClick={redo} disabled={!histRef.current.future.length} aria-label="Redo" title="Redo (Ctrl+Shift+Z)">
             <Redo2 className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            className={cn("rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors disabled:opacity-40", compareMode ? "bg-ink text-white" : "text-slate-600 hover:bg-slate-100 hover:text-ink")}
+            onClick={() => setCompareMode((value) => !value)}
+            disabled={reviewChanges.length === 0}
+            aria-pressed={compareMode}
+            title="Compare the original page with the edited page"
+          >
+            {compareMode ? "Close compare" : "Compare"}
+          </button>
+          <button
+            type="button"
+            className={cn("rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors disabled:opacity-40", reviewOpen ? "bg-pdf-soft text-ink" : "text-slate-600 hover:bg-slate-100 hover:text-ink")}
+            onClick={() => setReviewOpen((value) => !value)}
+            disabled={reviewChanges.length === 0}
+            aria-expanded={reviewOpen}
+          >
+            Changes <span className="tabular-nums">{reviewChanges.length}</span>
           </button>
         </div>
         <span className="hidden truncate text-xs text-slate-500 md:inline" title={doc.name}>
@@ -1134,6 +1209,40 @@ export function PdfEditorTool() {
         )}
       </div>
 
+      {reviewOpen && (
+        <section className="border-b border-slate-200 bg-white px-4 py-3" aria-label="PDF change review">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h2 className="text-sm font-bold text-ink">Changes in this PDF</h2>
+              <p className="mt-0.5 text-xs text-slate-600">Choose a change to jump to its page. Compare mode is read-only.</p>
+            </div>
+            <button
+              type="button"
+              className={cn("rounded-lg px-2.5 py-1.5 text-xs font-semibold", compareMode ? "bg-ink text-white" : "border border-slate-200 text-slate-700 hover:bg-slate-50")}
+              onClick={() => setCompareMode((value) => !value)}
+              aria-pressed={compareMode}
+            >
+              {compareMode ? "Close side-by-side" : "Compare original and edited"}
+            </button>
+          </div>
+          <ul className="grid max-h-52 gap-1 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3">
+            {reviewChanges.map((change) => (
+              <li key={change.id}>
+                <button
+                  type="button"
+                  onClick={() => focusReviewChange(change)}
+                  className="flex w-full items-start gap-2 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-pdf"
+                >
+                  <span className="mt-0.5 shrink-0 rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-slate-600">Page {change.pageIndex + 1}</span>
+                  <span className="min-w-0 flex-1 text-xs font-medium text-slate-800">{change.title}</span>
+                  {change.approximate && <span className="shrink-0 rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold text-amber-900">Approx. fill</span>}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       {/* Toast */}
       <div aria-live="polite" className="pointer-events-none relative z-30 h-0">
         {toast && (
@@ -1151,7 +1260,19 @@ export function PdfEditorTool() {
 
       {/* Workspace */}
       <div ref={wrapRef} className="overflow-x-auto bg-slate-100 p-3 sm:p-4">
-        <div className="relative mx-auto bg-white shadow-lift" style={{ width: dispW || undefined, height: dispH || undefined }}>
+        <div className={cn("mx-auto flex w-fit items-start gap-4", compareMode && "w-max")}>
+          {compareMode && (
+            <section className="shrink-0" aria-label="Original PDF page">
+              <h3 className="mb-1.5 text-xs font-bold text-slate-700">Original</h3>
+              <div className="bg-white shadow-lift" style={{ width: dispW || undefined, height: dispH || undefined }}>
+                <canvas ref={originalCanvasRef} className="block" />
+              </div>
+            </section>
+          )}
+
+          <section className={cn(compareMode && "shrink-0")} aria-label={compareMode ? "Edited PDF page" : undefined}>
+            {compareMode && <h3 className="mb-1.5 text-xs font-bold text-ink">Edited <span className="font-medium text-amber-800">· review areas outlined</span></h3>}
+            <div className="relative mx-auto bg-white shadow-lift" style={{ width: dispW || undefined, height: dispH || undefined }}>
           <canvas ref={canvasRef} className="block" />
           {rendering && (
             <div className="absolute right-2 top-2 z-30 flex items-center gap-1.5 rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-semibold text-slate-600 shadow-soft">
@@ -1161,8 +1282,8 @@ export function PdfEditorTool() {
 
           <div
             ref={overlayRef}
-            onPointerDown={onOverlayPointerDown}
-            className={cn("absolute inset-0 z-20 touch-none select-none", tool === "select" ? "cursor-default" : tool === "text" ? "cursor-text" : "cursor-crosshair")}
+            onPointerDown={compareMode ? undefined : onOverlayPointerDown}
+            className={cn("absolute inset-0 z-20 touch-none select-none", compareMode && "pointer-events-none", tool === "select" ? "cursor-default" : tool === "text" ? "cursor-text" : "cursor-crosshair")}
           >
             {/* Existing text */}
             {pageTexts.map((t) => {
@@ -1204,7 +1325,7 @@ export function PdfEditorTool() {
                       scale={scale}
                       selected={isSelected}
                       editing={isEditing}
-                      interactive={elementsInteractive}
+                      interactive={!compareMode && elementsInteractive}
                       onPointerDown={(e) => onExistingPointerDown(e, t)}
                       onChange={(v) => updateExisting(t.id, { currentText: v }, false)}
                       onFocus={() => (typingBefore.current = typingBefore.current ?? snapshot())}
@@ -1235,46 +1356,82 @@ export function PdfEditorTool() {
                       }}
                     />
                   ) : null}
+                  {compareMode && changed && (
+                    <div
+                      className="pointer-events-none absolute z-10 rounded-sm border-2 border-dashed border-amber-500"
+                      style={{
+                        left: `${patchX * 100}%`,
+                        top: `${patchY * 100}%`,
+                        width: `${Math.max(0, patchRight - patchX) * 100}%`,
+                        height: `${Math.max(0, patchBottom - patchY) * 100}%`,
+                      }}
+                    >
+                      <span className="absolute -top-4 left-0 whitespace-nowrap rounded bg-amber-600 px-1 py-0.5 text-[9px] font-bold leading-none text-white">Changed text</span>
+                    </div>
+                  )}
                 </React.Fragment>
               );
             })}
 
             {/* Annotations */}
-            {pageAnns.map((a) => (
-              <AnnotationView
-                key={a.id}
-                ann={a}
-                scale={scale}
-                selected={selectedId === a.id}
-                editing={editingId === a.id}
-                interactive={tool === "select" || (a.type === "text" && elementsInteractive)}
-                onPointerDown={(e) => onAnnPointerDown(e, a)}
-                onHandle={(e, h) => onHandlePointerDown(e, a, h)}
-                onFontHandle={(e) => a.type === "text" && onFontHandlePointerDown(e, "ann", a.id, a.fontSize)}
-                onTextChange={(v) => updateAnn(a.id, (x) => ({ ...(x as TextAnnotation), text: v }), false)}
-                onTextFocus={() => (typingBefore.current = typingBefore.current ?? snapshot())}
-                onTextBlur={() => {
-                  const before = typingBefore.current;
-                  typingBefore.current = null;
-                  setEditingId((id) => (id === a.id ? null : id));
-                  const cur = annRef.current.find((x) => x.id === a.id);
-                  if (cur && cur.type === "text" && !cur.text.trim()) {
-                    // Empty text box: drop it. Only record history if it existed before typing.
-                    setLiveState(annRef.current.filter((x) => x.id !== a.id));
-                    setSelectedId((sel) => (sel === a.id ? null : sel));
-                    if (before?.annotations.some((x) => x.id === a.id)) commitFrom(before);
-                    return;
-                  }
-                  commitFrom(before);
-                }}
-                onDoubleClick={() => {
-                  if (a.type === "text") {
-                    typingBefore.current = snapshot();
-                    setEditingId(a.id);
-                  }
-                }}
-              />
-            ))}
+            {pageAnns.map((a) => {
+              const box = getBox(a) ?? (a.type === "text" ? {
+                normX: a.normX,
+                normY: a.normY,
+                normW: Math.min(0.95, (a.text.length * a.fontSize * 0.62) / (pageSize?.w || 595)),
+                normH: (a.fontSize * 1.4) / (pageSize?.h || 842),
+              } : null);
+              const approximate = a.type === "whiteout" && !!a.dataUrl;
+              return (
+                <React.Fragment key={a.id}>
+                  <AnnotationView
+                    ann={a}
+                    scale={scale}
+                    selected={selectedId === a.id}
+                    editing={editingId === a.id}
+                    interactive={!compareMode && (tool === "select" || (a.type === "text" && elementsInteractive))}
+                    onPointerDown={(e) => onAnnPointerDown(e, a)}
+                    onHandle={(e, h) => onHandlePointerDown(e, a, h)}
+                    onFontHandle={(e) => a.type === "text" && onFontHandlePointerDown(e, "ann", a.id, a.fontSize)}
+                    onTextChange={(v) => updateAnn(a.id, (x) => ({ ...(x as TextAnnotation), text: v }), false)}
+                    onTextFocus={() => (typingBefore.current = typingBefore.current ?? snapshot())}
+                    onTextBlur={() => {
+                      const before = typingBefore.current;
+                      typingBefore.current = null;
+                      setEditingId((id) => (id === a.id ? null : id));
+                      const cur = annRef.current.find((x) => x.id === a.id);
+                      if (cur && cur.type === "text" && !cur.text.trim()) {
+                        // Empty text box: drop it. Only record history if it existed before typing.
+                        setLiveState(annRef.current.filter((x) => x.id !== a.id));
+                        setSelectedId((sel) => (sel === a.id ? null : sel));
+                        if (before?.annotations.some((x) => x.id === a.id)) commitFrom(before);
+                        return;
+                      }
+                      commitFrom(before);
+                    }}
+                    onDoubleClick={() => {
+                      if (a.type === "text") {
+                        typingBefore.current = snapshot();
+                        setEditingId(a.id);
+                      }
+                    }}
+                  />
+                  {compareMode && box && (
+                    <div
+                      className="pointer-events-none absolute z-10 rounded-sm border-2 border-dashed border-amber-500"
+                      style={{
+                        left: `${box.normX * 100}%`,
+                        top: `${box.normY * 100}%`,
+                        width: `${Math.max(0.002, box.normW) * 100}%`,
+                        height: `${Math.max(0.002, box.normH) * 100}%`,
+                      }}
+                    >
+                      <span className="absolute -top-4 left-0 whitespace-nowrap rounded bg-amber-600 px-1 py-0.5 text-[9px] font-bold leading-none text-white">{approximate ? "Approx. fill" : "Change"}</span>
+                    </div>
+                  )}
+                </React.Fragment>
+              );
+            })}
 
             {/* Live previews */}
             {live?.box && (
@@ -1303,6 +1460,8 @@ export function PdfEditorTool() {
               </svg>
             )}
           </div>
+            </div>
+          </section>
         </div>
       </div>
 
