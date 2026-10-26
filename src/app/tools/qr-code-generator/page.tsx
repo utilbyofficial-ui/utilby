@@ -5,7 +5,7 @@ import { QrCodeGeneratorTool } from "@/modules/qr-code/QrCodeGeneratorTool";
 export const metadata: Metadata = {
   title: "QR Code Generator – Free QR Code Generator for URL, Wi-Fi & Text | Utilby",
   description:
-    "Create free QR codes for websites, Wi-Fi, contacts, email, phone and SMS. Custom colors, high-resolution PNG and SVG download. No sign-up, no tracking, generated in your browser.",
+    "Create free QR codes for websites, Wi-Fi, contacts, email, phone and SMS. Add a logo, customize colors, and download high-resolution PNG or SVG files. Generated in your browser.",
   keywords: [
     "qr code generator",
     "free qr code generator",
@@ -14,6 +14,7 @@ export const metadata: Metadata = {
     "vcard qr code",
     "qr code svg",
     "qr code png download",
+    "qr code with logo",
   ],
   alternates: {
     canonical: "/tools/qr-code-generator",
@@ -49,7 +50,7 @@ export default function QrCodeGeneratorPage() {
       step: "3",
       title: "Customize the Design",
       description:
-        "Set the QR and background colors, error correction level, quiet zone, and PNG size. Keep dark modules on a light background for the most reliable scanning.",
+        "Set the QR and background colors, add a small logo, and adjust the error correction, quiet zone, and PNG size. Adding a logo automatically selects High error correction; test the code before printing.",
     },
     {
       step: "4",
@@ -70,7 +71,8 @@ export default function QrCodeGeneratorPage() {
         <p>
           <strong>Error correction levels:</strong> Low (≈7%), Medium (≈15%), Quartile (≈25%), and High (≈30%) describe
           how much of the code can be damaged or covered and still scan. Higher levels make the code denser, so use
-          Medium for everyday use and High if the code will be printed on rough surfaces or partly covered.
+          Medium for everyday use and High when adding a logo or printing on rough surfaces. A logo can still affect
+          scanning, so test the finished code on several phones before printing or sharing it widely.
         </p>
         <p>
           <strong>Static codes:</strong> The data is encoded directly in the image — there is no redirect server. Your
@@ -102,6 +104,11 @@ export default function QrCodeGeneratorPage() {
         "Use PNG for websites, social media, and documents. Use SVG for printing — it is a vector file, so it stays perfectly sharp on business cards, flyers, banners, and product packaging at any size.",
     },
     {
+      question: "Can I add my logo to the QR code?",
+      answer:
+        "Yes. Choose a PNG, JPG, or WebP image up to 5 MB. The logo is resized and added in your browser, with a small background pad behind it. High error correction is selected automatically. Always scan the downloaded code with a phone before printing, because a logo can reduce scan reliability.",
+    },
+    {
       question: "Why won't my colored QR code scan?",
       answer:
         "Scanners need strong contrast between the QR color and the background. Use a dark QR color on a light background, and keep a quiet zone (margin) around the code. The tool warns you when contrast is too low.",
@@ -117,7 +124,7 @@ export default function QrCodeGeneratorPage() {
     <ToolLayout
       toolId="qr-code-generator"
       title="Free QR Code Generator"
-      subtitle="Create QR codes for links, Wi-Fi, contacts, email, phone, and SMS. Custom colors, PNG and SVG download — generated privately in your browser."
+      subtitle="Create QR codes for links, Wi-Fi, contacts, email, phone, and SMS. Add a logo, choose custom colors, and download PNG or SVG — all in your browser."
       category="Developer Tools"
       categorySlug="developer"
       howToSteps={howToSteps}
