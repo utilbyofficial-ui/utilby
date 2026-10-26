@@ -36,6 +36,7 @@ import {
   mapPointerToMask,
   validateBackgroundInput,
   validateImageDimensions,
+  zoomPreviewByWheel,
   type BackgroundMode,
   type BrushMode,
   type ExportFormat,
@@ -113,6 +114,7 @@ export function BackgroundRemoverTool() {
   const [quality, setQuality] = React.useState(92);
   const [brushMode, setBrushMode] = React.useState<BrushMode>("erase");
   const [brushSize, setBrushSize] = React.useState(36);
+  const [manualControl, setManualControl] = React.useState(false);
   const [zoomPercent, setZoomPercent] = React.useState(100);
   const [previewBaseSize, setPreviewBaseSize] = React.useState<{ width: number; height: number } | null>(null);
   const [showBrushCursor, setShowBrushCursor] = React.useState(false);
@@ -166,6 +168,9 @@ export function BackgroundRemoverTool() {
   React.useEffect(() => {
     if (compare) setShowBrushCursor(false);
   }, [compare]);
+  React.useEffect(() => {
+    if (!manualControl) setShowBrushCursor(false);
+  }, [manualControl]);
   const revokeCurrentResources = React.useCallback(() => {
     jobIdRef.current++;
     workerRef.current?.terminate();
@@ -208,6 +213,7 @@ export function BackgroundRemoverTool() {
     setBackgroundName("");
     setMaskRevision(0);
     setCompare(false);
+    setManualControl(false);
     setZoomPercent(100);
     setPreviewBaseSize(null);
     setShowBrushCursor(false);
@@ -329,6 +335,7 @@ export function BackgroundRemoverTool() {
     setOriginalUrl("");
     setDimensions(null);
     setHasResult(false);
+    setManualControl(false);
     setPreviewBaseSize(null);
     setShowBrushCursor(false);
     setZoomPercent(100);
@@ -417,7 +424,7 @@ export function BackgroundRemoverTool() {
   };
 
   const handleBrushDown = (event: React.PointerEvent<HTMLCanvasElement>) => {
-    if (!hasResult || compare || !maskCanvasRef.current) return;
+    if (!hasResult || !manualControl || compare || !maskCanvasRef.current) return;
     const canvas = event.currentTarget;
     const rect = canvas.getBoundingClientRect();
     updateBrushCursorPosition(event, rect);
@@ -449,10 +456,10 @@ export function BackgroundRemoverTool() {
   };
 
   const handleBrushMove = (event: React.PointerEvent<HTMLCanvasElement>) => {
-    if (!compare && maskCanvasRef.current) updateBrushCursorPosition(event, event.currentTarget.getBoundingClientRect());
+    if (manualControl && !compare && maskCanvasRef.current) updateBrushCursorPosition(event, event.currentTarget.getBoundingClientRect());
     const active = brushPointerRef.current;
     const mask = maskCanvasRef.current;
-    if (!active || !mask || active.id !== event.pointerId) return;
+    if (!manualControl || !active || !mask || active.id !== event.pointerId) return;
     const point = mapPointerToMask(event.clientX, event.clientY, active.rect, mask.width, mask.height);
     if (!point) return;
     const context = mask.getContext("2d");
@@ -462,6 +469,14 @@ export function BackgroundRemoverTool() {
     active.point = point;
     event.preventDefault();
     queuePreviewPaint();
+  };
+
+  const handlePreviewWheel = (event: React.WheelEvent<HTMLCanvasElement>) => {
+    if (!hasResult || event.deltaY === 0) return;
+    event.preventDefault();
+    const deltaY = event.deltaY;
+    setZoomPercent((current) => zoomPreviewByWheel(current, deltaY));
+    setShowBrushCursor(false);
   };
 
   const updateBrushCursorPosition = (event: React.PointerEvent<HTMLCanvasElement>, rect: DOMRect) => {
@@ -583,6 +598,10 @@ export function BackgroundRemoverTool() {
     setZoomPercent((current) => clampPreviewZoom(current + amount));
     setShowBrushCursor(false);
   };
+  const toggleManualControl = () => {
+    setManualControl((enabled) => !enabled);
+    setShowBrushCursor(false);
+  };
   const previewDisplaySize = previewBaseSize
     ? { width: Math.round(previewBaseSize.width * zoomPercent / 100), height: Math.round(previewBaseSize.height * zoomPercent / 100) }
     : null;
@@ -651,13 +670,14 @@ export function BackgroundRemoverTool() {
                     <canvas
                       ref={previewCanvasRef}
                       aria-label={compare ? "Edited image preview" : brushMode === "erase" ? "Edited image; erase background with the brush" : "Edited image; restore subject with the brush"}
-                      className={`block touch-none select-none ${compare ? "cursor-default" : "cursor-crosshair"}`}
+                      className={`block touch-none select-none ${compare ? "cursor-default" : manualControl ? "cursor-crosshair" : "cursor-zoom-in"}`}
                       style={{ width: previewDisplaySize?.width ?? 0, height: previewDisplaySize?.height ?? 0 }}
                       onPointerDown={handleBrushDown}
                       onPointerMove={handleBrushMove}
                       onPointerUp={finishBrushStroke}
                       onPointerCancel={finishBrushStroke}
                       onLostPointerCapture={finishBrushStroke}
+                      onWheel={handlePreviewWheel}
                     />
                     {compare && originalUrl && (
                       <div className="pointer-events-none absolute inset-0 overflow-hidden" style={{ clipPath: `inset(0 ${100 - comparePosition}% 0 0)` }}>
@@ -684,7 +704,7 @@ export function BackgroundRemoverTool() {
                   <span>Edited</span>
                 </div>
               ) : hasResult ? (
-                <p className="mt-3 text-center text-xs text-slate-500">{brushMode === "erase" ? "Paint over leftover background to erase it." : "Paint over missing areas to restore the subject."} Brush size: {brushSize}px.</p>
+                <p className="mt-3 text-center text-xs text-slate-500">Scroll over the image to zoom in or out. {manualControl ? `${brushMode === "erase" ? "Paint over leftover background to erase it." : "Paint over missing areas to restore the subject."} Brush size: ${brushSize}px.` : "Turn on Manual Control to use the erase and restore brushes."}</p>
               ) : null}
             </div>
 
@@ -740,24 +760,24 @@ export function BackgroundRemoverTool() {
             </section>
 
             <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-soft sm:p-5" aria-label="Fine edge editing">
-              <div className="flex items-center justify-between gap-2"><div className="flex items-center gap-2"><Brush className="h-5 w-5 text-ink" /><h2 className="font-display text-lg font-bold text-ink">Fine-tune the edges</h2></div><span className="rounded-full bg-img-soft px-2 py-1 text-[10px] font-bold text-ink">MANUAL CONTROL</span></div>
-              <p className="mt-1 text-xs leading-relaxed text-slate-500">AI can miss tiny details. Brush them away or bring them back.</p>
+              <div className="flex flex-wrap items-center justify-between gap-2"><div className="flex items-center gap-2"><Brush className="h-5 w-5 text-ink" /><h2 className="font-display text-lg font-bold text-ink">Fine-tune the edges</h2></div><Button size="sm" variant={manualControl ? "primary" : "outline"} disabled={!hasResult || busy || compare} onClick={toggleManualControl} aria-pressed={manualControl}>{manualControl ? "Manual Control on" : "Manual Control"}</Button></div>
+              <p className="mt-1 text-xs leading-relaxed text-slate-500">{manualControl ? "Brush over the image to erase leftovers or restore missed areas. Turn this off when you finish." : "Turn on Manual Control before using brushes or changing edge softness."}</p>
               <div className="mt-4 grid grid-cols-2 gap-2">
-                <Button size="sm" variant={brushMode === "erase" ? "primary" : "outline"} disabled={!hasResult || busy || compare} onClick={() => setBrushMode("erase")} aria-pressed={brushMode === "erase"}><Eraser className="h-4 w-4" /> Erase</Button>
-                <Button size="sm" variant={brushMode === "restore" ? "primary" : "outline"} disabled={!hasResult || busy || compare} onClick={() => setBrushMode("restore")} aria-pressed={brushMode === "restore"}><Brush className="h-4 w-4" /> Restore</Button>
+                <Button size="sm" variant={brushMode === "erase" ? "primary" : "outline"} disabled={!hasResult || !manualControl || busy || compare} onClick={() => setBrushMode("erase")} aria-pressed={brushMode === "erase"}><Eraser className="h-4 w-4" /> Erase</Button>
+                <Button size="sm" variant={brushMode === "restore" ? "primary" : "outline"} disabled={!hasResult || !manualControl || busy || compare} onClick={() => setBrushMode("restore")} aria-pressed={brushMode === "restore"}><Brush className="h-4 w-4" /> Restore</Button>
               </div>
               <div className="mt-4 flex items-center gap-3">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-slate-50" aria-label={`Brush size preview: ${brushSize} pixels`} title={`Brush size preview: ${brushSize}px`}>
+                <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-200 ${manualControl ? "bg-slate-50" : "bg-slate-100 opacity-50"}`} aria-label={`Brush size preview: ${brushSize} pixels`} title={`Brush size preview: ${brushSize}px`}>
                   <span className={`block rounded-full border border-slate-700/70 ${brushMode === "erase" ? "bg-rose-300/70" : "bg-sky-300/70"}`} style={{ width: Math.max(4, Math.round(brushSize / 120 * 32)), height: Math.max(4, Math.round(brushSize / 120 * 32)) }} />
                 </div>
-                <label className="min-w-0 flex-1 text-xs font-semibold text-slate-700">Brush size <span className="float-right tabular-nums text-slate-500">{brushSize}px</span><input type="range" min={4} max={120} value={brushSize} onChange={(event) => setBrushSize(clampBrushSize(Number(event.target.value)))} className={`${RANGE_CLASS} mt-2`} disabled={!hasResult || busy || compare} aria-label="Brush size" /></label>
+                <label className="min-w-0 flex-1 text-xs font-semibold text-slate-700">Brush size <span className="float-right tabular-nums text-slate-500">{brushSize}px</span><input type="range" min={4} max={120} value={brushSize} onChange={(event) => setBrushSize(clampBrushSize(Number(event.target.value)))} className={`${RANGE_CLASS} mt-2`} disabled={!hasResult || !manualControl || busy || compare} aria-label="Brush size" /></label>
               </div>
-              <p className="mt-2 text-[11px] leading-relaxed text-slate-500">The preview circle follows your pointer on the image and updates as you adjust the brush.</p>
-              <label className="mt-4 block text-xs font-semibold text-slate-700">Edge softness <span className="float-right tabular-nums text-slate-500">{edgeSoftness}%</span><input type="range" min={0} max={100} value={edgeSoftness} onChange={(event) => setEdgeSoftness(clampEdgeSoftness(Number(event.target.value)))} className={`${RANGE_CLASS} mt-2`} disabled={!hasResult || busy} aria-label="Edge softness" /></label>
+              <p className="mt-2 text-[11px] leading-relaxed text-slate-500">{manualControl ? "The brush-size preview follows your pointer and changes with the slider." : "The brush and edge controls become available after you turn on Manual Control."}</p>
+              <label className="mt-4 block text-xs font-semibold text-slate-700">Edge softness <span className="float-right tabular-nums text-slate-500">{edgeSoftness}%</span><input type="range" min={0} max={100} value={edgeSoftness} onChange={(event) => setEdgeSoftness(clampEdgeSoftness(Number(event.target.value)))} className={`${RANGE_CLASS} mt-2`} disabled={!hasResult || !manualControl || busy} aria-label="Edge softness" /></label>
               <div className="mt-4 flex flex-wrap gap-2">
-                <Button variant="outline" size="sm" onClick={undo} disabled={!hasResult || !canUndo || busy}><Undo2 className="h-4 w-4" /> Undo</Button>
-                <Button variant="outline" size="sm" onClick={redo} disabled={!hasResult || !canRedo || busy}><Redo2 className="h-4 w-4" /> Redo</Button>
-                <Button variant="ghost" size="sm" onClick={resetMask} disabled={!hasResult || (!canUndo && !canRedo) || busy}><RotateCcw className="h-4 w-4" /> Reset mask</Button>
+                <Button variant="outline" size="sm" onClick={undo} disabled={!hasResult || !manualControl || !canUndo || busy}><Undo2 className="h-4 w-4" /> Undo</Button>
+                <Button variant="outline" size="sm" onClick={redo} disabled={!hasResult || !manualControl || !canRedo || busy}><Redo2 className="h-4 w-4" /> Redo</Button>
+                <Button variant="ghost" size="sm" onClick={resetMask} disabled={!hasResult || !manualControl || (!canUndo && !canRedo) || busy}><RotateCcw className="h-4 w-4" /> Reset mask</Button>
               </div>
             </section>
 

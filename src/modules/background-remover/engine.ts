@@ -74,6 +74,11 @@ export function clampPreviewZoom(zoom: number): number {
   return Math.max(MIN_PREVIEW_ZOOM, Math.min(MAX_PREVIEW_ZOOM, stepped));
 }
 
+export function zoomPreviewByWheel(currentZoom: number, deltaY: number): number {
+  if (!Number.isFinite(deltaY) || deltaY === 0) return clampPreviewZoom(currentZoom);
+  return clampPreviewZoom(currentZoom + (deltaY < 0 ? PREVIEW_ZOOM_STEP : -PREVIEW_ZOOM_STEP));
+}
+
 export function getPreviewDisplaySize(
   width: number,
   height: number,

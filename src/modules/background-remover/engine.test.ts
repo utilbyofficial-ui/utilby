@@ -18,6 +18,7 @@ import {
   mapPointerToMask,
   validateBackgroundInput,
   validateImageDimensions,
+  zoomPreviewByWheel,
 } from "./engine";
 
 describe("background remover input guards", () => {
@@ -59,6 +60,11 @@ describe("background remover geometry and mask helpers", () => {
     expect(clampPreviewZoom(0)).toBe(MIN_PREVIEW_ZOOM);
     expect(clampPreviewZoom(500)).toBe(MAX_PREVIEW_ZOOM);
     expect(getPreviewDisplaySize(1_500, 1_000, 0, 600)).toEqual({ width: 0, height: 0 });
+    expect(zoomPreviewByWheel(100, -1)).toBe(125);
+    expect(zoomPreviewByWheel(100, 1)).toBe(75);
+    expect(zoomPreviewByWheel(MAX_PREVIEW_ZOOM, -1)).toBe(MAX_PREVIEW_ZOOM);
+    expect(zoomPreviewByWheel(MIN_PREVIEW_ZOOM, 1)).toBe(MIN_PREVIEW_ZOOM);
+    expect(zoomPreviewByWheel(100, 0)).toBe(100);
   });
 
   it("limits model and editing masks to predictable sizes", () => {
