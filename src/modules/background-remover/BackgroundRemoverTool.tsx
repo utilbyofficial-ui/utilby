@@ -17,15 +17,22 @@ import {
   Undo2,
   UploadCloud,
   X,
+  ZoomIn,
+  ZoomOut,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import {
   MAX_BACKGROUND_REMOVER_FILE_BYTES,
+  MAX_PREVIEW_ZOOM,
+  MIN_PREVIEW_ZOOM,
+  PREVIEW_ZOOM_STEP,
   buildBackgroundOutputName,
   clampBrushSize,
   clampEdgeSoftness,
+  clampPreviewZoom,
   fitWithin,
   formatImageDimensions,
+  getPreviewDisplaySize,
   mapPointerToMask,
   validateBackgroundInput,
   validateImageDimensions,
@@ -106,6 +113,9 @@ export function BackgroundRemoverTool() {
   const [quality, setQuality] = React.useState(92);
   const [brushMode, setBrushMode] = React.useState<BrushMode>("erase");
   const [brushSize, setBrushSize] = React.useState(36);
+  const [zoomPercent, setZoomPercent] = React.useState(100);
+  const [previewBaseSize, setPreviewBaseSize] = React.useState<{ width: number; height: number } | null>(null);
+  const [showBrushCursor, setShowBrushCursor] = React.useState(false);
   const [edgeSoftness, setEdgeSoftness] = React.useState(20);
   const [maskRevision, setMaskRevision] = React.useState(0);
   const [compare, setCompare] = React.useState(false);
@@ -126,10 +136,36 @@ export function BackgroundRemoverTool() {
   const undoStackRef = React.useRef<Uint8Array[]>([]);
   const redoStackRef = React.useRef<Uint8Array[]>([]);
   const previewCanvasRef = React.useRef<HTMLCanvasElement>(null);
+  const previewViewportRef = React.useRef<HTMLDivElement>(null);
+  const brushCursorRef = React.useRef<HTMLDivElement>(null);
   const jobIdRef = React.useRef(0);
   const brushPointerRef = React.useRef<{ id: number; point: { x: number; y: number }; rect: DOMRect } | null>(null);
   const renderFrameRef = React.useRef<number | null>(null);
   const previewPainterRef = React.useRef<() => void>(() => undefined);
+
+  React.useEffect(() => {
+    const viewport = previewViewportRef.current;
+    if (!hasResult || !dimensions || !viewport) return;
+
+    const measure = () => {
+      const style = window.getComputedStyle(viewport);
+      const horizontalPadding = Number.parseFloat(style.paddingLeft) + Number.parseFloat(style.paddingRight);
+      const verticalPadding = Number.parseFloat(style.paddingTop) + Number.parseFloat(style.paddingBottom);
+      const availableWidth = Math.max(1, viewport.clientWidth - horizontalPadding);
+      const availableHeight = Math.max(1, viewport.clientHeight - verticalPadding);
+      const workingSize = fitWithin(dimensions.width, dimensions.height, MAX_PREVIEW_EDGE);
+      setPreviewBaseSize(getPreviewDisplaySize(workingSize.width, workingSize.height, availableWidth, availableHeight));
+    };
+
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(viewport);
+    return () => observer.disconnect();
+  }, [dimensions, hasResult]);
+
+  React.useEffect(() => {
+    if (compare) setShowBrushCursor(false);
+  }, [compare]);
   const revokeCurrentResources = React.useCallback(() => {
     jobIdRef.current++;
     workerRef.current?.terminate();
@@ -172,6 +208,9 @@ export function BackgroundRemoverTool() {
     setBackgroundName("");
     setMaskRevision(0);
     setCompare(false);
+    setZoomPercent(100);
+    setPreviewBaseSize(null);
+    setShowBrushCursor(false);
     setCanUndo(false);
     setCanRedo(false);
   }, [revokeCurrentResources]);
@@ -290,6 +329,9 @@ export function BackgroundRemoverTool() {
     setOriginalUrl("");
     setDimensions(null);
     setHasResult(false);
+    setPreviewBaseSize(null);
+    setShowBrushCursor(false);
+    setZoomPercent(100);
     setBackend(null);
     setBackgroundName("");
     setBackgroundMode("transparent");
@@ -378,6 +420,7 @@ export function BackgroundRemoverTool() {
     if (!hasResult || compare || !maskCanvasRef.current) return;
     const canvas = event.currentTarget;
     const rect = canvas.getBoundingClientRect();
+    updateBrushCursorPosition(event, rect);
     const point = mapPointerToMask(event.clientX, event.clientY, rect, maskCanvasRef.current.width, maskCanvasRef.current.height);
     if (!point) return;
     try {
@@ -406,6 +449,7 @@ export function BackgroundRemoverTool() {
   };
 
   const handleBrushMove = (event: React.PointerEvent<HTMLCanvasElement>) => {
+    if (!compare && maskCanvasRef.current) updateBrushCursorPosition(event, event.currentTarget.getBoundingClientRect());
     const active = brushPointerRef.current;
     const mask = maskCanvasRef.current;
     if (!active || !mask || active.id !== event.pointerId) return;
@@ -418,6 +462,18 @@ export function BackgroundRemoverTool() {
     active.point = point;
     event.preventDefault();
     queuePreviewPaint();
+  };
+
+  const updateBrushCursorPosition = (event: React.PointerEvent<HTMLCanvasElement>, rect: DOMRect) => {
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    if (x < 0 || y < 0 || x > rect.width || y > rect.height) return;
+    const cursor = brushCursorRef.current;
+    if (cursor) {
+      cursor.style.left = `${x}px`;
+      cursor.style.top = `${y}px`;
+    }
+    setShowBrushCursor(true);
   };
 
   const finishBrushStroke = (event?: React.PointerEvent<HTMLCanvasElement>) => {
@@ -523,6 +579,13 @@ export function BackgroundRemoverTool() {
     if (mode === "image" && !backgroundBitmapRef.current) backgroundInputRef.current?.click();
   };
 
+  const changeZoom = (amount: number) => {
+    setZoomPercent((current) => clampPreviewZoom(current + amount));
+    setShowBrushCursor(false);
+  };
+  const previewDisplaySize = previewBaseSize
+    ? { width: Math.round(previewBaseSize.width * zoomPercent / 100), height: Math.round(previewBaseSize.height * zoomPercent / 100) }
+    : null;
   const busy = status === "loading" || status === "processing";
 
   return (
@@ -563,24 +626,33 @@ export function BackgroundRemoverTool() {
                 <p className="truncate text-sm font-bold text-ink" title={file.name}>{file.name}</p>
                 <p className="mt-0.5 text-xs text-slate-500">{formatImageDimensions(dimensions.width, dimensions.height)} · {(file.size / (1024 * 1024)).toFixed(file.size < 10 * 1024 * 1024 ? 1 : 0)} MB</p>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center justify-end gap-2">
                 {hasResult && (
-                  <Button variant={compare ? "primary" : "outline"} size="sm" onClick={() => setCompare((value) => !value)} aria-pressed={compare}>
-                    {compare ? "Editing" : "Compare"}
-                  </Button>
+                  <>
+                    <div className="flex items-center gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1" aria-label="Image zoom controls">
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => changeZoom(-PREVIEW_ZOOM_STEP)} disabled={zoomPercent <= MIN_PREVIEW_ZOOM} aria-label="Zoom out" title="Zoom out"><ZoomOut className="h-4 w-4" /></Button>
+                      <span className="min-w-[3.25rem] text-center text-xs font-semibold tabular-nums text-slate-700" aria-live="polite">{zoomPercent}%</span>
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => changeZoom(PREVIEW_ZOOM_STEP)} disabled={zoomPercent >= MAX_PREVIEW_ZOOM} aria-label="Zoom in" title="Zoom in"><ZoomIn className="h-4 w-4" /></Button>
+                      <Button variant="ghost" size="sm" className="h-8 px-2 text-xs" onClick={() => { setZoomPercent(100); setShowBrushCursor(false); }} disabled={zoomPercent === 100}>Fit</Button>
+                    </div>
+                    <Button variant={compare ? "primary" : "outline"} size="sm" onClick={() => setCompare((value) => !value)} aria-pressed={compare}>
+                      {compare ? "Editing" : "Compare"}
+                    </Button>
+                  </>
                 )}
                 <Button variant="ghost" size="icon" className="h-9 w-9" onClick={clearImage} aria-label="Remove current image" title="Remove image"><X className="h-4 w-4" /></Button>
               </div>
             </div>
 
             <div className="bg-slate-50 p-3 sm:p-5">
-              <div className="flex min-h-[280px] items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-white p-2 sm:min-h-[400px] sm:p-4" style={checkerboardStyle()}>
+              <div ref={previewViewportRef} className={`flex h-[68vh] min-h-[280px] max-h-[640px] overflow-auto rounded-2xl border border-slate-200 bg-white p-2 sm:p-4 ${zoomPercent > 100 ? "items-start justify-start" : "items-center justify-center"}`} style={checkerboardStyle()}>
                 {hasResult ? (
-                  <div className="relative inline-block max-h-[68vh] max-w-full overflow-hidden rounded-xl shadow-soft">
+                  <div className="relative inline-block shrink-0 overflow-hidden rounded-xl shadow-soft" style={{ width: previewDisplaySize?.width ?? 0, height: previewDisplaySize?.height ?? 0 }}>
                     <canvas
                       ref={previewCanvasRef}
                       aria-label={compare ? "Edited image preview" : brushMode === "erase" ? "Edited image; erase background with the brush" : "Edited image; restore subject with the brush"}
-                      className={`block h-auto max-h-[68vh] w-auto max-w-full touch-none ${compare ? "cursor-default" : "cursor-crosshair"}`}
+                      className={`block touch-none select-none ${compare ? "cursor-default" : "cursor-crosshair"}`}
+                      style={{ width: previewDisplaySize?.width ?? 0, height: previewDisplaySize?.height ?? 0 }}
                       onPointerDown={handleBrushDown}
                       onPointerMove={handleBrushMove}
                       onPointerUp={finishBrushStroke}
@@ -595,6 +667,7 @@ export function BackgroundRemoverTool() {
                       </div>
                     )}
                     {compare && <span className="pointer-events-none absolute right-2 top-2 rounded-lg bg-ink/90 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-white">Edited</span>}
+                    {!compare && <div ref={brushCursorRef} aria-hidden="true" className={`pointer-events-none absolute z-10 rounded-full border-2 border-white shadow-[0_0_0_1px_rgba(15,23,42,0.85)] ${brushMode === "erase" ? "bg-rose-400/15" : "bg-sky-400/20"}`} style={{ width: brushSize, height: brushSize, transform: "translate(-50%, -50%)", opacity: showBrushCursor ? 1 : 0 }} />}
                   </div>
                 ) : (
                   <div className="relative flex max-h-[68vh] max-w-full items-center justify-center">
@@ -673,7 +746,13 @@ export function BackgroundRemoverTool() {
                 <Button size="sm" variant={brushMode === "erase" ? "primary" : "outline"} disabled={!hasResult || busy || compare} onClick={() => setBrushMode("erase")} aria-pressed={brushMode === "erase"}><Eraser className="h-4 w-4" /> Erase</Button>
                 <Button size="sm" variant={brushMode === "restore" ? "primary" : "outline"} disabled={!hasResult || busy || compare} onClick={() => setBrushMode("restore")} aria-pressed={brushMode === "restore"}><Brush className="h-4 w-4" /> Restore</Button>
               </div>
-              <label className="mt-4 block text-xs font-semibold text-slate-700">Brush size <span className="float-right tabular-nums text-slate-500">{brushSize}px</span><input type="range" min={4} max={120} value={brushSize} onChange={(event) => setBrushSize(clampBrushSize(Number(event.target.value)))} className={`${RANGE_CLASS} mt-2`} disabled={!hasResult || busy || compare} aria-label="Brush size" /></label>
+              <div className="mt-4 flex items-center gap-3">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-slate-50" aria-label={`Brush size preview: ${brushSize} pixels`} title={`Brush size preview: ${brushSize}px`}>
+                  <span className={`block rounded-full border border-slate-700/70 ${brushMode === "erase" ? "bg-rose-300/70" : "bg-sky-300/70"}`} style={{ width: Math.max(4, Math.round(brushSize / 120 * 32)), height: Math.max(4, Math.round(brushSize / 120 * 32)) }} />
+                </div>
+                <label className="min-w-0 flex-1 text-xs font-semibold text-slate-700">Brush size <span className="float-right tabular-nums text-slate-500">{brushSize}px</span><input type="range" min={4} max={120} value={brushSize} onChange={(event) => setBrushSize(clampBrushSize(Number(event.target.value)))} className={`${RANGE_CLASS} mt-2`} disabled={!hasResult || busy || compare} aria-label="Brush size" /></label>
+              </div>
+              <p className="mt-2 text-[11px] leading-relaxed text-slate-500">The preview circle follows your pointer on the image and updates as you adjust the brush.</p>
               <label className="mt-4 block text-xs font-semibold text-slate-700">Edge softness <span className="float-right tabular-nums text-slate-500">{edgeSoftness}%</span><input type="range" min={0} max={100} value={edgeSoftness} onChange={(event) => setEdgeSoftness(clampEdgeSoftness(Number(event.target.value)))} className={`${RANGE_CLASS} mt-2`} disabled={!hasResult || busy} aria-label="Edge softness" /></label>
               <div className="mt-4 flex flex-wrap gap-2">
                 <Button variant="outline" size="sm" onClick={undo} disabled={!hasResult || !canUndo || busy}><Undo2 className="h-4 w-4" /> Undo</Button>

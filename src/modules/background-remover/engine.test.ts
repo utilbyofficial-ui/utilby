@@ -1,12 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
   MAX_BACKGROUND_REMOVER_FILE_BYTES,
+  MAX_PREVIEW_ZOOM,
+  MIN_PREVIEW_ZOOM,
   buildBackgroundOutputName,
   clampBrushSize,
   clampEdgeSoftness,
+  clampPreviewZoom,
   extractAlphaChannel,
   fitWithin,
   formatImageDimensions,
+  getPreviewDisplaySize,
   getBackgroundInputMime,
   getMaskDimensions,
   getModelInputDimensions,
@@ -43,6 +47,18 @@ describe("background remover geometry and mask helpers", () => {
     expect(fitWithin(4_000, 2_000, 1_500)).toEqual({ width: 1_500, height: 750 });
     expect(fitWithin(640, 480, 1_500)).toEqual({ width: 640, height: 480 });
     expect(() => fitWithin(100, 50, 0)).toThrow(/at least one/i);
+  });
+
+  it("fits the preview to its viewport and applies bounded zoom levels", () => {
+    expect(getPreviewDisplaySize(1_500, 1_000, 750, 600, 100)).toEqual({ width: 750, height: 500 });
+    expect(getPreviewDisplaySize(1_500, 1_000, 750, 600, 200)).toEqual({ width: 1_500, height: 1_000 });
+    expect(getPreviewDisplaySize(1_500, 1_000, 750, 600, 350)).toEqual({ width: 2_250, height: 1_500 });
+    expect(clampPreviewZoom(62)).toBe(50);
+    expect(clampPreviewZoom(88)).toBe(100);
+    expect(clampPreviewZoom(Number.NaN)).toBe(100);
+    expect(clampPreviewZoom(0)).toBe(MIN_PREVIEW_ZOOM);
+    expect(clampPreviewZoom(500)).toBe(MAX_PREVIEW_ZOOM);
+    expect(getPreviewDisplaySize(1_500, 1_000, 0, 600)).toEqual({ width: 0, height: 0 });
   });
 
   it("limits model and editing masks to predictable sizes", () => {

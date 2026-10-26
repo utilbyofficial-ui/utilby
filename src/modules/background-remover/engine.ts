@@ -3,6 +3,9 @@ export const MAX_BACKGROUND_REMOVER_PIXELS = 24_000_000;
 export const MAX_BACKGROUND_REMOVER_DIMENSION = 16_000;
 export const MAX_MASK_EDGE = 2_048;
 export const MAX_MODEL_INPUT_EDGE = 1_536;
+export const MIN_PREVIEW_ZOOM = 50;
+export const MAX_PREVIEW_ZOOM = 300;
+export const PREVIEW_ZOOM_STEP = 25;
 
 export const BACKGROUND_REMOVER_INPUT_TYPES = ["image/jpeg", "image/png", "image/webp", "image/bmp"] as const;
 export type BackgroundRemoverInputType = (typeof BACKGROUND_REMOVER_INPUT_TYPES)[number];
@@ -59,6 +62,30 @@ export function fitWithin(width: number, height: number, maxEdge: number): { wid
   }
   if (!Number.isFinite(maxEdge) || maxEdge < 1) throw new RangeError("Maximum edge must be at least one pixel.");
   const scale = Math.min(1, maxEdge / Math.max(width, height));
+  return {
+    width: Math.max(1, Math.round(width * scale)),
+    height: Math.max(1, Math.round(height * scale)),
+  };
+}
+
+export function clampPreviewZoom(zoom: number): number {
+  if (!Number.isFinite(zoom)) return 100;
+  const stepped = Math.round(zoom / PREVIEW_ZOOM_STEP) * PREVIEW_ZOOM_STEP;
+  return Math.max(MIN_PREVIEW_ZOOM, Math.min(MAX_PREVIEW_ZOOM, stepped));
+}
+
+export function getPreviewDisplaySize(
+  width: number,
+  height: number,
+  viewportWidth: number,
+  viewportHeight: number,
+  zoom = 100,
+): { width: number; height: number } {
+  if (![width, height, viewportWidth, viewportHeight].every(Number.isFinite) || width <= 0 || height <= 0 || viewportWidth <= 0 || viewportHeight <= 0) {
+    return { width: 0, height: 0 };
+  }
+  const fitScale = Math.min(1, viewportWidth / width, viewportHeight / height);
+  const scale = fitScale * (clampPreviewZoom(zoom) / 100);
   return {
     width: Math.max(1, Math.round(width * scale)),
     height: Math.max(1, Math.round(height * scale)),
