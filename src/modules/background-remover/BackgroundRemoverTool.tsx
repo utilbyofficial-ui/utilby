@@ -142,6 +142,7 @@ export function BackgroundRemoverTool() {
   const previewViewportRef = React.useRef<HTMLDivElement>(null);
   const brushCursorRef = React.useRef<HTMLDivElement>(null);
   const zoomAnchorRef = React.useRef<PreviewZoomAnchor | null>(null);
+  const previewWheelHandlerRef = React.useRef<(event: WheelEvent) => void>(() => undefined);
   const jobIdRef = React.useRef(0);
   const brushPointerRef = React.useRef<{ id: number; point: { x: number; y: number }; rect: DOMRect } | null>(null);
   const renderFrameRef = React.useRef<number | null>(null);
@@ -493,14 +494,15 @@ export function BackgroundRemoverTool() {
     queuePreviewPaint();
   };
 
-  const handlePreviewWheel = (event: React.WheelEvent<HTMLCanvasElement>) => {
-    if (!hasResult || event.deltaY === 0) return;
-    event.preventDefault();
+  const handlePreviewWheel = (event: WheelEvent) => {
     const viewport = previewViewportRef.current;
-    const viewportRect = viewport?.getBoundingClientRect();
-    const canvasRect = event.currentTarget.getBoundingClientRect();
+    const canvas = previewCanvasRef.current;
+    if (!hasResult || !viewport || !canvas || event.deltaY === 0) return;
+    event.preventDefault();
+    const viewportRect = viewport.getBoundingClientRect();
+    const canvasRect = canvas.getBoundingClientRect();
     const nextZoom = zoomPreviewByWheel(zoomPercent, event.deltaY);
-    if (nextZoom === zoomPercent || !viewport || !viewportRect) {
+    if (nextZoom === zoomPercent) {
       zoomAnchorRef.current = null;
       return;
     }
@@ -513,6 +515,15 @@ export function BackgroundRemoverTool() {
     setZoomPercent(nextZoom);
     setShowBrushCursor(false);
   };
+  previewWheelHandlerRef.current = handlePreviewWheel;
+
+  React.useEffect(() => {
+    const canvas = previewCanvasRef.current;
+    if (!hasResult || !canvas) return;
+    const onWheel = (event: WheelEvent) => previewWheelHandlerRef.current(event);
+    canvas.addEventListener("wheel", onWheel, { passive: false });
+    return () => canvas.removeEventListener("wheel", onWheel);
+  }, [hasResult]);
 
   const updateBrushCursorPosition = (event: React.PointerEvent<HTMLCanvasElement>, rect: DOMRect) => {
     const x = event.clientX - rect.left;
@@ -713,7 +724,6 @@ export function BackgroundRemoverTool() {
                       onPointerUp={finishBrushStroke}
                       onPointerCancel={finishBrushStroke}
                       onLostPointerCapture={finishBrushStroke}
-                      onWheel={handlePreviewWheel}
                     />
                     {compare && originalUrl && (
                       <div className="pointer-events-none absolute inset-0 overflow-hidden" style={{ clipPath: `inset(0 ${100 - comparePosition}% 0 0)` }}>
