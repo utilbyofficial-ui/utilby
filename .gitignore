@@ -24,7 +24,9 @@ yarn-debug.log*
 yarn-error.log*
 
 # local env files
-.env*.local
+.env
+.env*
+.dev.vars
 
 # local unzipped archives
 public/brand-kit/utilby-brand-kit-master/
