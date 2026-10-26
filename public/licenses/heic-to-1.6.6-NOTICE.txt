@@ -1,0 +1,10 @@
+HEIC to JPG/PNG conversion uses heic-to version 1.6.6.
+
+The heic-to library and its bundled HEIF decoder are provided under the GNU Lesser General Public License, version 3 (LGPL-3.0). The library is distributed as a separate, unmodified WebAssembly JavaScript asset at /vendor/heic-to-1.6.6.next.js so it can be inspected or replaced independently of the application code.
+
+License text: /licenses/heic-to-1.6.6-LICENSE.txt
+heic-to source and build instructions: https://github.com/hoppergee/heic-to/tree/v1.6.6
+libheif source: https://github.com/strukturag/libheif
+libde265 source: https://github.com/strukturag/libde265
+
+The decoder and source images are processed locally in the browser. The source image is not sent to Utilby.

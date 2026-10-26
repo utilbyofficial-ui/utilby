@@ -114,7 +114,7 @@ export default function ImageCompressorPage() {
     {
       question: "Does it support HEIC photos from iPhone?",
       answer:
-        "Not yet. Most browsers cannot decode HEIC. On iPhone, set Camera → Formats → Most Compatible to save photos as JPG, or share the photo and choose JPG first.",
+        "Use the HEIC to JPG or PNG tool first. It converts iPhone photos in your browser; then you can add the result here to compress or resize it.",
     },
   ];
 

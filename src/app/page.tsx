@@ -13,11 +13,11 @@ export const metadata: Metadata = {
   alternates: { canonical: "/" },
 };
 
-const QUICK = ["pdf-merger", "image-compressor", "jpg-to-pdf", "qr-code-generator", "split-pdf"];
+const QUICK = ["pdf-merger", "image-compressor", "heic-to-jpg", "jpg-to-pdf", "qr-code-generator", "split-pdf"];
 
 const CATEGORY_BLURB: Record<string, string> = {
   pdf: "Merge, split, organize and convert",
-  image: "Compress and resize photos",
+  image: "Convert, compress and resize photos",
   text: "Count words, change case",
   developer: "JSON and QR codes",
   security: "Strong, random passwords",
