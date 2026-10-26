@@ -43,6 +43,7 @@ const TOOL_GLYPHS: Record<string, string> = {
   "pdf-to-jpg": "IMG",
   "pdf-editor": "✎",
   "pdf-compressor": "ZIP",
+  "add-page-numbers-pdf": "Pg#",
 };
 
 export function toolGlyph(tool: Pick<ToolMeta, "id" | "category">): string {

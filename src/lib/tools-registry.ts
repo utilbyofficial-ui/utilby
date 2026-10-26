@@ -252,4 +252,16 @@ export const TOOLS: ToolMeta[] = [
     isReady: true,
     keywords: ["pdf compressor", "compress pdf online", "reduce pdf size"],
   },
+  {
+    id: "add-page-numbers-pdf",
+    name: "Add PDF Page Numbers & Labels",
+    slug: "add-page-numbers-pdf",
+    category: "pdf",
+    categoryName: "PDF Tools",
+    shortDescription: "Add clear page numbers or a visible COPY, DRAFT, SAMPLE, or CONFIDENTIAL label.",
+    longDescription: "Add footer page numbers and a fixed, visible document label to each PDF page in your browser.",
+    iconName: "ListOrdered",
+    isReady: true,
+    keywords: ["add page numbers to pdf", "pdf page numbers", "stamp pdf copy", "draft stamp pdf", "confidential pdf label"],
+  },
 ];

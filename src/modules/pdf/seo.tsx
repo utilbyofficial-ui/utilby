@@ -169,6 +169,31 @@ export const PDF_TOOLS: Record<string, PdfToolConfig> = {
       FREE_FAQ,
     ],
   },
+  "add-page-numbers-pdf": {
+    slug: "add-page-numbers-pdf",
+    mode: "page-marks",
+    title: "Add PDF Page Numbers & Labels",
+    metaTitle: "Add Page Numbers and Visible Labels to PDF | Utilby",
+    metaDescription:
+      "Add Page X of Y footer numbers or a visible COPY, DRAFT, SAMPLE, or CONFIDENTIAL label to a PDF. Free, private, and processed in your browser.",
+    subtitle:
+      "Add clear footer page numbers and optional visible COPY, DRAFT, SAMPLE, or CONFIDENTIAL labels. Your original file stays unchanged.",
+    keywords: ["add page numbers to pdf", "pdf page numbering", "add copy stamp to pdf", "draft pdf label", "confidential pdf stamp"],
+    howToSteps: [
+      { step: "1", title: "Choose a PDF", description: "Select one PDF file. It is opened locally in your browser." },
+      { step: "2", title: "Choose the marks", description: "Page numbers are enabled by default. You can also select a fixed, visible COPY, DRAFT, SAMPLE, or CONFIDENTIAL label." },
+      { step: "3", title: "Review the options", description: "Page numbers appear in the bottom margin. A selected label is printed diagonally across every page." },
+      { step: "4", title: "Download", description: "Choose a file name and download the newly marked PDF. The original stays unchanged." },
+    ],
+    faqs: [
+      PRIVACY_FAQ,
+      { question: "Can I type a custom label or move it over existing text?", answer: "No. This tool only offers fixed document labels, places them visibly across the center of each page, and does not remove or cover existing content." },
+      { question: "Will the label be hidden or barely visible?", answer: "No. Selected labels are printed diagonally with a clear, fixed appearance so readers can see them." },
+      { question: "Does this change my original PDF?", answer: "No. The tool creates a separate download and leaves the source file on your device unchanged." },
+      FREE_FAQ,
+      PASSWORD_FAQ,
+    ],
+  },
   "jpg-to-pdf": {
     slug: "jpg-to-pdf",
     mode: "images",

@@ -1,6 +1,6 @@
 import fs from "fs";
 import path from "path";
-import { execSync } from "child_process";
+import sharp from "sharp";
 
 // We read TOOLS and CATEGORIES from registry
 // Since this is an ESM script, let's extract them cleanly
@@ -131,43 +131,44 @@ function generateSvg({ title, categoryName, categoryColor, description, badge = 
 </svg>`;
 }
 
-function buildPng(svgContent, targetPngPath) {
-  const tempSvg = targetPngPath.replace(/\.png$/, ".tmp.svg");
-  fs.writeFileSync(tempSvg, svgContent, "utf-8");
-  try {
-    execSync(`sips -s format png "${tempSvg}" --out "${targetPngPath}" > /dev/null 2>&1`);
-  } finally {
-    if (fs.existsSync(tempSvg)) fs.unlinkSync(tempSvg);
+async function buildPng(svgContent, targetPngPath) {
+  await sharp(Buffer.from(svgContent)).png().toFile(targetPngPath);
+}
+
+const onlyToolSlug = process.argv[2];
+if (onlyToolSlug && !tools.some((tool) => tool.slug === onlyToolSlug)) {
+  throw new Error(`Unknown tool slug: ${onlyToolSlug}`);
+}
+
+console.log(onlyToolSlug ? `Generating Open Graph image for ${onlyToolSlug}...` : "Generating Open Graph images...");
+
+if (!onlyToolSlug) {
+  // 1. Site-wide default OG image
+  const defaultSvg = generateSvg({
+    title: "The Friendly Toolbox for Everyday Files",
+    categoryName: "15+ Free In-Browser Tools",
+    categoryColor: "#FFC53D",
+    description: "Merge PDFs, shrink photos, generate QR codes, and more — free, instant, and 100% private.",
+    badge: "100% In-Browser · No Sign-up",
+  });
+  await buildPng(defaultSvg, path.join(ogDir, "default.png"));
+  console.log("✓ Generated public/og/default.png");
+
+  // 2. Per-category OG images
+  for (const [catId, conf] of Object.entries(CATEGORY_COLORS)) {
+    const svg = generateSvg({
+      title: `Free Online ${conf.name}`,
+      categoryName: conf.name,
+      categoryColor: conf.color,
+      description: `Fast, private ${conf.name.toLowerCase()} that run 100% inside your browser. No server uploads.`,
+    });
+    await buildPng(svg, path.join(ogDir, `${catId}-tools.png`));
+    console.log(`✓ Generated public/og/${catId}-tools.png`);
   }
 }
 
-console.log("Generating Open Graph images...");
-
-// 1. Site-wide default OG image
-const defaultSvg = generateSvg({
-  title: "The Friendly Toolbox for Everyday Files",
-  categoryName: "15+ Free In-Browser Tools",
-  categoryColor: "#FFC53D",
-  description: "Merge PDFs, shrink photos, generate QR codes, and more — free, instant, and 100% private.",
-  badge: "100% In-Browser · No Sign-up",
-});
-buildPng(defaultSvg, path.join(ogDir, "default.png"));
-console.log("✓ Generated public/og/default.png");
-
-// 2. Per-category OG images
-for (const [catId, conf] of Object.entries(CATEGORY_COLORS)) {
-  const svg = generateSvg({
-    title: `Free Online ${conf.name}`,
-    categoryName: conf.name,
-    categoryColor: conf.color,
-    description: `Fast, private ${conf.name.toLowerCase()} that run 100% inside your browser. No server uploads.`,
-  });
-  buildPng(svg, path.join(ogDir, `${catId}-tools.png`));
-  console.log(`✓ Generated public/og/${catId}-tools.png`);
-}
-
-// 3. Per-tool OG images
-for (const tool of tools) {
+// Generate all tool previews by default, or only the requested tool when a slug is passed.
+for (const tool of tools.filter((candidate) => !onlyToolSlug || candidate.slug === onlyToolSlug)) {
   const cat = CATEGORY_COLORS[tool.category] ?? { color: "#FFC53D", name: tool.categoryName };
   const svg = generateSvg({
     title: tool.name,
@@ -175,7 +176,7 @@ for (const tool of tools) {
     categoryColor: cat.color,
     description: tool.shortDescription,
   });
-  buildPng(svg, path.join(ogToolsDir, `${tool.slug}.png`));
+  await buildPng(svg, path.join(ogToolsDir, `${tool.slug}.png`));
   console.log(`✓ Generated public/og/tools/${tool.slug}.png`);
 }
 

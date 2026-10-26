@@ -25,6 +25,7 @@ import {
 import { buildPdf, buildPdfGroups, loadPdf, EncryptedPdfError, SourceData, ImagePageSize, DEFAULT_BUILD_OPTIONS } from "./build";
 import { prepareImage } from "./image";
 import { openPdfForRendering, renderPageToUrl } from "./render";
+import { addPdfPageMarks, type VisiblePdfStamp } from "./marks";
 import { formatBytes, dedupeFilenames } from "@/modules/image-compressor/engine";
 import { Button } from "@/components/ui/Button";
 import {
@@ -52,7 +53,7 @@ import {
   Check,
 } from "lucide-react";
 
-export type PdfWorkspaceMode = "merge" | "split" | "organize" | "rotate" | "delete" | "extract" | "images";
+export type PdfWorkspaceMode = "merge" | "split" | "organize" | "rotate" | "delete" | "extract" | "images" | "page-marks";
 
 type SplitMode = "selected" | "each" | "ranges" | "every";
 
@@ -90,6 +91,7 @@ const MODE_DEFAULTS: Record<PdfWorkspaceMode, { tab: "save" | "split"; split: Sp
   delete: { tab: "save", split: "ranges", hint: "Click pages to select them, press Delete, then download the cleaned-up PDF." },
   extract: { tab: "split", split: "selected", hint: "Click the pages you want to keep, then extract them into a new PDF." },
   images: { tab: "save", split: "ranges", hint: "Add JPG or PNG images — each becomes a page. Reorder them, then download your PDF." },
+  "page-marks": { tab: "save", split: "ranges", hint: "Add page numbers or a clearly visible COPY, DRAFT, SAMPLE, or CONFIDENTIAL label." },
 };
 
 interface PdfWorkspaceProps {
@@ -113,6 +115,8 @@ export function PdfWorkspace({ mode = "organize" }: PdfWorkspaceProps) {
   const [everyN, setEveryN] = React.useState(2);
   const [fileName, setFileName] = React.useState("");
   const [imagePageSize, setImagePageSize] = React.useState<ImagePageSize>("a4");
+  const [includePageNumbers, setIncludePageNumbers] = React.useState(true);
+  const [stamp, setStamp] = React.useState<VisiblePdfStamp>("");
   const [exporting, setExporting] = React.useState(false);
   const [done, setDone] = React.useState("");
   const [history, setHistory] = React.useState<{ past: PageItem[][]; future: PageItem[][] }>({ past: [], future: [] });
@@ -227,13 +231,22 @@ export function PdfWorkspace({ mode = "organize" }: PdfWorkspaceProps) {
 
   // ---------- Adding files ----------
   const addFiles = async (list: FileList | File[]) => {
+    if (mode === "page-marks" && sources.length > 0) {
+      setErrors(["Start over before choosing a different PDF."]);
+      return;
+    }
     const submittedFiles = Array.from(list);
-    const files = submittedFiles.slice(0, MAX_IMPORT_FILES);
+    const maxFiles = mode === "page-marks" ? 1 : MAX_IMPORT_FILES;
+    const files = submittedFiles.slice(0, maxFiles);
     if (!files.length) return;
     const generation = importGeneration.current;
     const newErrors: string[] = [];
-    if (submittedFiles.length > MAX_IMPORT_FILES) {
-      newErrors.push(`Only ${MAX_IMPORT_FILES} files can be added at once. The first ${MAX_IMPORT_FILES} are being processed.`);
+    if (submittedFiles.length > maxFiles) {
+      newErrors.push(
+        mode === "page-marks"
+          ? "Choose one PDF at a time. Start over to work on a different file."
+          : `Only ${MAX_IMPORT_FILES} files can be added at once. The first ${MAX_IMPORT_FILES} are being processed.`
+      );
     }
     setLoading((n) => n + files.length);
     const added: { source: SourceFile; pages: PageItem[] }[] = [];
@@ -242,9 +255,9 @@ export function PdfWorkspace({ mode = "organize" }: PdfWorkspaceProps) {
       if (generation !== importGeneration.current) break;
       try {
         const isPdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name);
-        const isImage = file.type.startsWith("image/");
+        const isImage = mode !== "page-marks" && file.type.startsWith("image/");
         if (!isPdf && !isImage) {
-          newErrors.push(`${file.name}: not a PDF or image file.`);
+          newErrors.push(`${file.name}: ${mode === "page-marks" ? "choose a PDF file." : "not a PDF or image file."}`);
           continue;
         }
         if (file.size > MAX_FILE_BYTES) {
@@ -319,6 +332,8 @@ export function PdfWorkspace({ mode = "organize" }: PdfWorkspaceProps) {
             ? "merged"
             : mode === "images"
             ? baseName(first) + "-images"
+            : mode === "page-marks"
+            ? baseName(first) + "-labeled"
             : baseName(first) + (mode === "merge" || mode === "split" || mode === "extract" ? "" : "-edited")
         )
       );
@@ -482,8 +497,10 @@ export function PdfWorkspace({ mode = "organize" }: PdfWorkspaceProps) {
     setErrors([]);
     try {
       const opts = { ...DEFAULT_BUILD_OPTIONS, imagePageSize, title: outName };
+      const addMarks = (bytes: Uint8Array) =>
+        mode === "page-marks" ? addPdfPageMarks(bytes, { includePageNumbers, stamp }) : Promise.resolve(bytes);
       if (exportTab === "save") {
-        const bytes = await buildPdf(pages, sourceData.current, opts);
+        const bytes = await addMarks(await buildPdf(pages, sourceData.current, opts));
         if (bytes.byteLength > MAX_EXPORT_BYTES) throw new Error(`The PDF output exceeded the ${formatBytes(MAX_EXPORT_BYTES)} download limit. Remove pages or export smaller groups.`);
         triggerDownload(new Blob([bytes as BlobPart], { type: "application/pdf" }), `${outName}.pdf`);
         setDone(`Saved ${outName}.pdf • ${pages.length} page${pages.length > 1 ? "s" : ""} • ${formatBytes(bytes.length)}`);
@@ -491,7 +508,11 @@ export function PdfWorkspace({ mode = "organize" }: PdfWorkspaceProps) {
         const { groups, error } = splitGroups;
         if (error || !groups.length) throw new Error(error || "Nothing to export");
         if (groups.length > MAX_SPLIT_GROUPS) throw new Error(`Split exports are limited to ${MAX_SPLIT_GROUPS} output files at a time.`);
-        const files = await buildPdfGroups(pages, groups, sourceData.current, opts, MAX_EXPORT_BYTES);
+        const rawFiles = await buildPdfGroups(pages, groups, sourceData.current, opts, MAX_EXPORT_BYTES);
+        const files = await Promise.all(rawFiles.map(addMarks));
+        if (files.reduce((sum, file) => sum + file.byteLength, 0) > MAX_EXPORT_BYTES) {
+          throw new Error(`The PDF output exceeded the ${formatBytes(MAX_EXPORT_BYTES)} download limit. Export fewer pages at a time.`);
+        }
         if (files.length === 1) {
           const name = `${outName}-pages-${formatIndexes(groups[0]).replace(/\s/g, "")}.pdf`;
           triggerDownload(new Blob([files[0] as BlobPart], { type: "application/pdf" }), name);
@@ -503,6 +524,7 @@ export function PdfWorkspace({ mode = "organize" }: PdfWorkspaceProps) {
           const entries: Record<string, Uint8Array> = {};
           files.forEach((f, i) => (entries[names[i]] = f));
           const zip = zipSync(entries, { level: 0 });
+          if (zip.byteLength > MAX_EXPORT_BYTES) throw new Error(`The ZIP output exceeded the ${formatBytes(MAX_EXPORT_BYTES)} download limit.`);
           triggerDownload(new Blob([zip as BlobPart], { type: "application/zip" }), `${outName}-split.zip`);
           setDone(`Saved ${files.length} PDFs in ${outName}-split.zip • ${formatBytes(zip.length)}`);
         }
@@ -515,7 +537,7 @@ export function PdfWorkspace({ mode = "organize" }: PdfWorkspaceProps) {
   };
 
   // ---------- Render ----------
-  const acceptAttr = mode === "images" ? `${ACCEPT_IMAGES},${ACCEPT_PDF}` : `${ACCEPT_PDF},${ACCEPT_IMAGES}`;
+  const acceptAttr = mode === "page-marks" ? ACCEPT_PDF : mode === "images" ? `${ACCEPT_IMAGES},${ACCEPT_PDF}` : `${ACCEPT_PDF},${ACCEPT_IMAGES}`;
   const sourceMap = new Map(sources.map((s) => [s.id, s]));
   const pageNumberOfIndex = (i: number) => i + 1;
 
@@ -552,10 +574,10 @@ export function PdfWorkspace({ mode = "organize" }: PdfWorkspaceProps) {
         <UploadCloud className="h-6 w-6 text-ink" />
       </div>
       <p className="text-sm font-semibold text-slate-900 dark:text-white">
-        {mode === "images" ? "Drop images here or click to browse" : "Drop PDF files here or click to browse"}
+        {mode === "images" ? "Drop images here or click to browse" : mode === "page-marks" ? "Drop one PDF here or click to browse" : "Drop PDF files here or click to browse"}
       </p>
       <p className="mt-1 text-xs text-slate-500">
-        {mode === "images" ? "JPG, PNG, WebP, GIF, BMP — PDFs can be added too" : "PDF files and images (JPG, PNG) • 20 files per import"} • 50 MB combined • 500 pages per workspace
+        {mode === "images" ? "JPG, PNG, WebP, GIF, BMP — PDFs can be added too" : mode === "page-marks" ? "One PDF • 50 MB maximum" : "PDF files and images (JPG, PNG) • 20 files per import • 50 MB combined • 500 pages per workspace"}
       </p>
     </div>
   );
@@ -564,7 +586,7 @@ export function PdfWorkspace({ mode = "organize" }: PdfWorkspaceProps) {
     <input
       ref={inputRef}
       type="file"
-      multiple
+      multiple={mode !== "page-marks"}
       accept={acceptAttr}
       className="hidden"
       onChange={(e) => {
@@ -633,9 +655,11 @@ export function PdfWorkspace({ mode = "organize" }: PdfWorkspaceProps) {
             </button>
           </span>
         ))}
-        <Button type="button" size="sm" variant="outline" onClick={() => inputRef.current?.click()}>
-          <FilePlus2 className="h-4 w-4" /> Add files
-        </Button>
+        {!(mode === "page-marks" && sources.length > 0) && (
+          <Button type="button" size="sm" variant="outline" onClick={() => inputRef.current?.click()}>
+            <FilePlus2 className="h-4 w-4" /> Add files
+          </Button>
+        )}
         {loading > 0 && (
           <span className="inline-flex items-center gap-1.5 text-xs text-slate-500">
             <Loader2 className="h-3.5 w-3.5 animate-spin" /> Opening…
@@ -811,12 +835,14 @@ export function PdfWorkspace({ mode = "organize" }: PdfWorkspaceProps) {
         {/* Export panel */}
         <aside className="border-t border-slate-100 p-4 sm:p-5 lg:border-l lg:border-t-0 dark:border-slate-800">
           <div className="lg:sticky lg:top-32 space-y-4">
-            <div role="tablist" className="grid grid-cols-2 gap-1 rounded-lg bg-slate-100 p-1 dark:bg-slate-800">
+            <div role="tablist" className={`grid ${mode === "page-marks" ? "grid-cols-1" : "grid-cols-2"} gap-1 rounded-lg bg-slate-100 p-1 dark:bg-slate-800`}>
               {(
-                [
+                (mode === "page-marks" ? [
+                  ["save", "Save as PDF", FileDown],
+                ] as const : [
                   ["save", "Save as PDF", FileDown],
                   ["split", "Split / Extract", Scissors],
-                ] as const
+                ] as const)
               ).map(([id, label, Icon]) => (
                 <button
                   key={id}
@@ -835,6 +861,37 @@ export function PdfWorkspace({ mode = "organize" }: PdfWorkspaceProps) {
                 </button>
               ))}
             </div>
+
+            {mode === "page-marks" && (
+              <fieldset className="space-y-3 rounded-xl border border-slate-200 p-3">
+                <legend className="px-1 text-xs font-semibold text-slate-800">Visible page marks</legend>
+                <label className="flex items-start gap-2.5 text-xs text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={includePageNumbers}
+                    onChange={(e) => setIncludePageNumbers(e.target.checked)}
+                    className="mt-0.5 accent-ink"
+                  />
+                  <span><strong>Page numbers</strong><span className="mt-0.5 block text-slate-500">Adds “Page 1 of N” at the bottom of each page.</span></span>
+                </label>
+                <label className="block space-y-1.5 text-xs font-medium text-slate-700" htmlFor="pdf-visible-stamp">
+                  Optional visible label
+                  <select
+                    id="pdf-visible-stamp"
+                    value={stamp}
+                    onChange={(e) => setStamp(e.target.value as VisiblePdfStamp)}
+                    className="h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900 focus:border-ink focus:outline-none focus:ring-2 focus:ring-ink/20"
+                  >
+                    <option value="">No label</option>
+                    <option value="COPY">COPY</option>
+                    <option value="DRAFT">DRAFT</option>
+                    <option value="SAMPLE">SAMPLE</option>
+                    <option value="CONFIDENTIAL">CONFIDENTIAL</option>
+                  </select>
+                </label>
+                <p className="text-[11px] leading-relaxed text-slate-500">Labels are printed diagonally across every page, so they remain easy to see. This tool does not hide or remove existing PDF content.</p>
+              </fieldset>
+            )}
 
             <div className="space-y-1.5">
               <label htmlFor="pdf-name" className="text-xs font-medium text-slate-700">
