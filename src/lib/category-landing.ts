@@ -32,32 +32,32 @@ export const CATEGORY_LANDING_PAGES: Record<ToolMeta["category"], CategoryLandin
     name: "PDF Tools",
     seoTitle: "Free Online PDF Tools – 100% In-Browser & Private | Utilby",
     seoDescription:
-      "Merge, split, organize, rotate, delete, extract pages, and convert JPG to PDF in your browser. No file size limits, no server uploads, and completely free.",
+      "Merge, split, organize, rotate, delete, extract pages, and convert PDFs in your browser. Tool-specific file limits apply; your documents are processed on your device.",
     h1: "Free Online PDF Tools",
     subtitle:
       "Fast, private utilities to organize, merge, split, and convert PDF documents in your browser. Your files never touch a remote server.",
     highlightStats: [
       "{count} Free Tools Available",
       "100% In-Browser Execution",
-      "No File Size Limits",
-      "Lossless Quality Preserved",
+      "Tool-Specific File Limits",
+      "No Account Required",
     ],
     whyChooseHeading: "Why Use Utilby's In-Browser PDF Suite?",
     whyChoosePoints: [
       {
-        title: "Confidentiality Guaranteed",
+        title: "Your documents stay on your device",
         description:
-          "Traditional PDF websites upload your sensitive contracts, tax records, and bank statements to remote servers. Utilby processes every page directly inside your browser using WebAssembly. Nothing is ever uploaded or stored.",
+          "PDF tools process document contents in your browser. Your files are not uploaded to Utilby for processing, so you can work without sending the document to a remote conversion queue.",
       },
       {
-        title: "No Daily Caps or File Size Limits",
+        title: "No account or daily quota",
         description:
-          "Because your own device handles the processing, you don't have to wait in cloud conversion queues or pay for premium subscriptions to handle large multi-page documents.",
+          "Use the tools without creating an account or waiting in a cloud conversion queue. Each workspace shows its file and page limits, and large documents may need more memory on your device.",
       },
       {
-        title: "Works Offline Once Loaded",
+        title: "Designed for local processing",
         description:
-          "Once you open any Utilby PDF tool, you can disconnect your internet and continue organizing, merging, or rotating pages. This proves conclusively that your documents stay on your machine.",
+          "After a tool and its required resources have loaded, many PDF operations can continue without a connection. Check the tool page for details and limits.",
       },
     ],
     howToSteps: [
@@ -91,12 +91,12 @@ export const CATEGORY_LANDING_PAGES: Record<ToolMeta["category"], CategoryLandin
       {
         question: "Is there a limit on how many PDF pages or files I can merge?",
         answer:
-          "There are no artificial limits. You can merge as many PDF files or pages as your computer's memory can handle with zero paywalls.",
+          "Limits vary by tool. The upload area shows the supported file size, file count, and page count. Your device's available memory can also affect large documents.",
       },
       {
         question: "Does merging or splitting degrade PDF text or image quality?",
         answer:
-          "No. Utilby performs lossless page extraction and merging. Text remains searchable and vector fonts, forms, and high-resolution images are preserved exactly as in the original file.",
+          "Page operations such as merging and splitting do not rasterize pages. PDF compression is different: it can re-encode supported images, so compare the output before using it.",
       },
       {
         question: "Can I use these PDF tools on mobile phones and tablets?",
@@ -116,10 +116,10 @@ export const CATEGORY_LANDING_PAGES: Record<ToolMeta["category"], CategoryLandin
       "Compress and resize JPG, PNG, and WebP images directly in your browser. Social media presets, bulk batch processing, and ZIP download with zero server uploads.",
     h1: "Free Online Image Tools",
     subtitle:
-      "Optimize, resize, and convert images client-side with HTML5 Canvas and browser Web Workers. Fast, lossless visual fidelity with complete privacy.",
+      "Compress and resize images in your browser, with adjustable quality and format options. Preview results before downloading.",
     highlightStats: [
       "Bulk Batch Processing",
-      "Up to 90% File Size Reduction",
+      "Adjustable Quality Settings",
       "Social Media Presets",
       "Instant ZIP Export",
     ],
@@ -128,17 +128,17 @@ export const CATEGORY_LANDING_PAGES: Record<ToolMeta["category"], CategoryLandin
       {
         title: "Zero Cloud Bandwidth Lag",
         description:
-          "Compress and resize high-resolution camera photos (even 50 MB+ assets) without waiting for gigabytes to upload to a slow cloud queue.",
+          "Compress and resize high-resolution photos up to the tool's 50 MB per-image limit without waiting for files to upload to a cloud queue.",
       },
       {
-        title: "Smart Quality Algorithms",
+        title: "Choose the balance you need",
         description:
-          "Our compression engine uses browser-native canvas and WebP encoding to maximize byte savings while keeping photos crisp and free of visible artifacts.",
+          "Adjust the quality setting and compare the result with the original before you download. The best setting depends on the image and how you plan to use it.",
       },
       {
         title: "Batch Download as ZIP",
         description:
-          "Process dozens of photos in one go and download the optimized collection as a single compressed ZIP file in seconds.",
+          "Process up to 20 images per batch and download the optimized collection as a single ZIP file.",
       },
     ],
     howToSteps: [
@@ -177,7 +177,7 @@ export const CATEGORY_LANDING_PAGES: Record<ToolMeta["category"], CategoryLandin
       {
         question: "Will compressing my photos make them look blurry?",
         answer:
-          "Our default 80% compression level achieves 60% to 90% file size reduction with virtually no visible difference to the human eye on high-DPI screens.",
+          "Quality changes depend on the image and setting. Use the before-and-after preview to inspect the result, and raise the quality if you want to keep more detail.",
       },
     ],
   },

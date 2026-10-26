@@ -101,7 +101,7 @@ const TOOLS: { id: ToolMode; label: string; icon: React.ElementType; hint: strin
   { id: "moveElement", label: "Cut & move", icon: Scissors, hint: "Drag around an image or block to lift it out. Background repair is approximate; inspect the result before exporting." },
   { id: "draw", label: "Draw", icon: PenTool, hint: "Draw freehand with your mouse, finger or pen." },
   { id: "highlight", label: "Highlight", icon: Highlighter, hint: "Drag across text to highlight it." },
-  { id: "whiteout", label: "Whiteout", icon: Eraser, hint: "Drag over anything to cover it. Text underneath is removed from the file too." },
+  { id: "whiteout", label: "Whiteout", icon: Eraser, hint: "Drag over an area to cover it visually. This is not guaranteed secure redaction." },
   { id: "rect", label: "Box", icon: Square, hint: "Drag to draw a rectangle." },
   { id: "circle", label: "Ellipse", icon: Circle, hint: "Drag to draw an ellipse." },
 ];
@@ -913,7 +913,7 @@ export function PdfEditorTool() {
           </span>
           <p className="font-display text-xl font-bold text-ink">{loading ? "Opening your PDF…" : "Drop a PDF here or click to choose"}</p>
           <p className="mt-2 max-w-md text-sm text-slate-600">
-            Edit existing text, add text and images, resize and move anything, sign, draw and highlight. PDFs up to 100 MB and 500 pages.
+            Edit supported text, add text and images, move elements, sign, draw and highlight. PDFs up to 100 MB and 500 pages.
           </p>
           <input
             ref={fileInputRef}
@@ -1122,6 +1122,15 @@ export function PdfEditorTool() {
           <Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
           <p>
             Scanned or watermarked pages may have background details under the text that the editor cannot recover exactly. Any background fill is approximate—review the edited page beside the original before downloading. For official identity documents, use the issuing authority’s correction process.
+          </p>
+        </div>
+      )}
+
+      {tool === "whiteout" && (
+        <div className="flex items-start gap-2 border-b border-amber-200 bg-amber-50 px-4 py-2.5 text-xs text-amber-950" role="note">
+          <Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
+          <p>
+            Whiteout covers an area and attempts to remove selectable text underneath. It may miss images, outlined text, or other PDF layers. Do not rely on it to securely redact confidential information.
           </p>
         </div>
       )}

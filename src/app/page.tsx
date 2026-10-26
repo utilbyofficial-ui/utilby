@@ -59,6 +59,23 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* Popular tools are placed near the top so visitors can start without browsing every toolbox. */}
+      <section id="popular-tools" aria-labelledby="popular" className="mx-auto max-w-[1240px] scroll-mt-20 px-4 pb-10 pt-2 sm:px-6 lg:px-8">
+        <div className="flex flex-wrap items-baseline justify-between gap-4">
+          <h2 id="popular" className="font-display text-3xl font-bold tracking-tight text-ink sm:text-4xl">
+            Popular tools
+          </h2>
+          <Link href="/tools" className="text-[15px] font-semibold text-ink underline-offset-4 hover:underline">
+            See all {ready.length} tools →
+          </Link>
+        </div>
+        <div className="stagger mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {featured.slice(0, 4).map((t) => (
+            <ToolCard key={t.id} tool={t} />
+          ))}
+        </div>
+      </section>
+
       {/* Toolboxes */}
       <section id="all-tools" aria-labelledby="toolboxes" className="mx-auto max-w-[1240px] scroll-mt-20 px-4 py-12 sm:px-6 lg:px-8">
         <h2 id="toolboxes" className="font-display text-3xl font-bold tracking-tight text-ink sm:text-4xl">
@@ -95,23 +112,6 @@ export default function HomePage() {
               </Link>
             );
           })}
-        </div>
-      </section>
-
-      {/* Most loved */}
-      <section id="popular-tools" aria-labelledby="popular" className="mx-auto max-w-[1240px] scroll-mt-20 px-4 py-12 sm:px-6 lg:px-8">
-        <div className="flex flex-wrap items-baseline justify-between gap-4">
-          <h2 id="popular" className="font-display text-3xl font-bold tracking-tight text-ink sm:text-4xl">
-            Most loved
-          </h2>
-          <Link href="/tools" className="text-[15px] font-semibold text-ink underline-offset-4 hover:underline">
-            See all {ready.length} tools →
-          </Link>
-        </div>
-        <div className="stagger mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {featured.map((t) => (
-            <ToolCard key={t.id} tool={t} />
-          ))}
         </div>
       </section>
 

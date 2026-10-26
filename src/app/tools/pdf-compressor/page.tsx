@@ -34,7 +34,7 @@ export default function PdfCompressorPage() {
     {
       step: "1",
       title: "Choose a PDF",
-      description: "Drop a PDF into the workspace or browse your device. Files up to 200 MB are processed locally.",
+      description: "Drop a PDF into the workspace or browse your device. Files up to 100 MB are processed locally.",
     },
     {
       step: "2",

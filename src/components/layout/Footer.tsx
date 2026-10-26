@@ -104,10 +104,11 @@ export function Footer() {
             </div>
 
             <div className="col-span-2 sm:col-span-1">
-              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-200">Company & Legal</h2>
+              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-200">Company & Help</h2>
               <ul className="mt-3.5 space-y-2 text-sm grid grid-cols-2 sm:grid-cols-1 gap-x-4">
                 <li><Link href="/about" className="text-slate-400 transition-colors hover:text-white block py-0.5">About Utilby</Link></li>
                 <li><Link href="/contact" className="text-slate-400 transition-colors hover:text-white block py-0.5">Contact</Link></li>
+                <li><Link href="/help" className="text-slate-400 transition-colors hover:text-white block py-0.5">Help &amp; Guides</Link></li>
                 <li><Link href="/privacy-policy" className="text-slate-400 transition-colors hover:text-white block py-0.5">Privacy Policy</Link></li>
                 <li><Link href="/terms-of-service" className="text-slate-400 transition-colors hover:text-white block py-0.5">Terms</Link></li>
                 <li className="col-span-2 sm:col-span-1"><Link href="/disclaimer" className="text-slate-400 transition-colors hover:text-white block py-0.5">Disclaimer</Link></li>

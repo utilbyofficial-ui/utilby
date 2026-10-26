@@ -5,7 +5,7 @@ import { ImageCompressorTool } from "@/modules/image-compressor/ImageCompressorT
 export const metadata: Metadata = {
   title: "Image Compressor – Compress JPG, PNG & WebP Online Free | Utilby",
   description:
-    "Reduce image file size by up to 90% without visible quality loss. Compress JPG, PNG and WebP in bulk, convert to WebP, resize, and download as ZIP. Private — images never leave your browser.",
+    "Compress JPG, PNG and WebP images in your browser. Adjust quality, choose an output format, resize, and download a batch as ZIP. Up to 50 MB per image.",
   keywords: [
     "image compressor",
     "compress image",
@@ -21,7 +21,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: "Free Image Compressor – JPG, PNG, WebP | Utilby",
-    description: "Shrink images in bulk without quality loss. No upload — everything happens in your browser.",
+    description: "Choose compression quality, output format, and image size. Process images in your browser, up to 50 MB each.",
     url: "https://utilby.com/tools/image-compressor",
     type: "website",
     images: [{ url: "https://utilby.com/og/tools/image-compressor.png", width: 1200, height: 630 }],
@@ -92,9 +92,9 @@ export default function ImageCompressorPage() {
         "No. All compression happens inside your browser on your own device. Your images are never uploaded, stored, or seen by anyone — the tool even works offline once the page has loaded.",
     },
     {
-      question: "Will compressing reduce the quality of my images?",
+      question: "Will compressing reduce image quality?",
       answer:
-        "At the recommended 70–80% quality the difference is practically invisible, while the file becomes much smaller. Use the before/after comparison slider to check, and raise the quality if you need more detail.",
+        "Quality changes depend on the image and setting. Use the before/after comparison slider to inspect the result, and raise the quality if you want to keep more detail.",
     },
     {
       question: "What is the best format for the smallest file size?",
@@ -109,7 +109,7 @@ export default function ImageCompressorPage() {
     {
       question: "Can I compress many images at once?",
       answer:
-        "Yes. Drop as many images as you like — they are processed one by one, and you can download them individually or all together in a single ZIP file.",
+        "Yes. Add up to 20 images and 100 MB per batch. They are processed one by one, and you can download them individually or together in a ZIP file.",
     },
     {
       question: "Does it support HEIC photos from iPhone?",
@@ -122,7 +122,7 @@ export default function ImageCompressorPage() {
     <ToolLayout
       toolId="image-compressor"
       title="Image Compressor"
-      subtitle="Reduce JPG, PNG, and WebP file sizes by up to 90% without visible quality loss. Bulk compress, convert to WebP, resize, and download as ZIP — all inside your browser."
+      subtitle="Compress JPG, PNG, and WebP images, choose an output format, resize, and download a batch as ZIP — all inside your browser. Results depend on the image and quality setting."
       category="Image Tools"
       categorySlug="image"
       howToSteps={howToSteps}
