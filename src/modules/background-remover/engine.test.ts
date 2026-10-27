@@ -11,7 +11,9 @@ import {
   extractAlphaChannel,
   fitWithin,
   formatImageDimensions,
+  getPreviewPanScroll,
   getPreviewDisplaySize,
+  isPreviewZoomGesture,
   getBackgroundInputMime,
   getMaskDimensions,
   getModelInputDimensions,
@@ -67,6 +69,11 @@ describe("background remover geometry and mask helpers", () => {
     expect(zoomPreviewByWheel(MAX_PREVIEW_ZOOM, -1)).toBe(MAX_PREVIEW_ZOOM);
     expect(zoomPreviewByWheel(MIN_PREVIEW_ZOOM, 1)).toBe(MIN_PREVIEW_ZOOM);
     expect(zoomPreviewByWheel(100, 0)).toBe(100);
+    expect(isPreviewZoomGesture(false, false)).toBe(false);
+    expect(isPreviewZoomGesture(true, false)).toBe(true);
+    expect(isPreviewZoomGesture(false, true)).toBe(true);
+    expect(getPreviewPanScroll(140, 80, 200, 120, 240, 90)).toEqual({ left: 100, top: 110 });
+    expect(getPreviewPanScroll(0, 0, 200, 120, 260, 150)).toEqual({ left: 0, top: 0 });
   });
 
   it("limits model and editing masks to predictable sizes", () => {

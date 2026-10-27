@@ -79,6 +79,24 @@ export function zoomPreviewByWheel(currentZoom: number, deltaY: number): number 
   return clampPreviewZoom(currentZoom * Math.exp(-deltaY * 0.0013));
 }
 
+export function isPreviewZoomGesture(ctrlKey: boolean, metaKey: boolean): boolean {
+  return ctrlKey || metaKey;
+}
+
+export function getPreviewPanScroll(
+  startLeft: number,
+  startTop: number,
+  startX: number,
+  startY: number,
+  pointerX: number,
+  pointerY: number,
+): { left: number; top: number } {
+  return {
+    left: Math.max(0, startLeft - (pointerX - startX)),
+    top: Math.max(0, startTop - (pointerY - startY)),
+  };
+}
+
 export function getPreviewDisplaySize(
   width: number,
   height: number,

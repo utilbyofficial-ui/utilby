@@ -7,6 +7,7 @@ import {
   Brush,
   Check,
   Eraser,
+  Hand,
   ImagePlus,
   Loader2,
   Palette,
@@ -32,8 +33,10 @@ import {
   clampEdgeSoftness,
   clampPreviewZoom,
   fitWithin,
+  getPreviewPanScroll,
   formatImageDimensions,
   getPreviewDisplaySize,
+  isPreviewZoomGesture,
   mapPointerToMask,
   validateBackgroundInput,
   validateImageDimensions,
@@ -117,8 +120,10 @@ export function BackgroundRemoverTool() {
   const [brushMode, setBrushMode] = React.useState<BrushMode>("erase");
   const [brushSize, setBrushSize] = React.useState(36);
   const [manualControl, setManualControl] = React.useState(false);
+  const [panMode, setPanMode] = React.useState(false);
   const [zoomPercent, setZoomPercent] = React.useState(100);
   const [previewBaseSize, setPreviewBaseSize] = React.useState<{ width: number; height: number } | null>(null);
+  const [isPanning, setIsPanning] = React.useState(false);
   const [showBrushCursor, setShowBrushCursor] = React.useState(false);
   const [edgeSoftness, setEdgeSoftness] = React.useState(DEFAULT_EDGE_SOFTNESS);
   const [maskRevision, setMaskRevision] = React.useState(0);
@@ -142,10 +147,11 @@ export function BackgroundRemoverTool() {
   const previewCanvasRef = React.useRef<HTMLCanvasElement>(null);
   const previewViewportRef = React.useRef<HTMLDivElement>(null);
   const brushCursorRef = React.useRef<HTMLDivElement>(null);
-  const zoomAnchorRef = React.useRef<PreviewZoomAnchor | null>(null);
+  const zoomAnchorRef = React.useRef<PreviewZoomAnchor | "reset" | null>(null);
   const previewWheelHandlerRef = React.useRef<(event: WheelEvent) => void>(() => undefined);
   const jobIdRef = React.useRef(0);
   const brushPointerRef = React.useRef<{ id: number; point: { x: number; y: number }; rect: DOMRect } | null>(null);
+  const panPointerRef = React.useRef<{ id: number; startX: number; startY: number; scrollLeft: number; scrollTop: number } | null>(null);
   const renderFrameRef = React.useRef<number | null>(null);
   const previewPainterRef = React.useRef<() => void>(() => undefined);
 
@@ -175,7 +181,13 @@ export function BackgroundRemoverTool() {
     zoomAnchorRef.current = null;
     const viewport = previewViewportRef.current;
     const canvas = previewCanvasRef.current;
-    if (!viewport || !canvas) return;
+    if (!viewport) return;
+    if (anchor === "reset") {
+      viewport.scrollLeft = 0;
+      viewport.scrollTop = 0;
+      return;
+    }
+    if (!canvas) return;
 
     const viewportRect = viewport.getBoundingClientRect();
     const canvasRect = canvas.getBoundingClientRect();
@@ -495,24 +507,40 @@ export function BackgroundRemoverTool() {
     queuePreviewPaint();
   };
 
+  const anchorZoomAt = (clientX: number, clientY: number) => {
+    const viewport = previewViewportRef.current;
+    const canvas = previewCanvasRef.current;
+    if (!viewport || !canvas) return;
+    const viewportRect = viewport.getBoundingClientRect();
+    const canvasRect = canvas.getBoundingClientRect();
+    zoomAnchorRef.current = {
+      imageX: Math.max(0, Math.min(1, (clientX - canvasRect.left) / Math.max(1, canvasRect.width))),
+      imageY: Math.max(0, Math.min(1, (clientY - canvasRect.top) / Math.max(1, canvasRect.height))),
+      viewportX: clientX - viewportRect.left - viewport.clientLeft,
+      viewportY: clientY - viewportRect.top - viewport.clientTop,
+    };
+  };
+
   const handlePreviewWheel = (event: WheelEvent) => {
     const viewport = previewViewportRef.current;
     const canvas = previewCanvasRef.current;
-    if (!hasResult || !viewport || !canvas || event.deltaY === 0) return;
+    // Keep ordinary wheel and trackpad gestures for page scrolling; Ctrl/Command + wheel zooms the image.
+    if (!hasResult || !viewport || !canvas || (event.deltaY === 0 && event.deltaX === 0)) return;
+    if (!isPreviewZoomGesture(event.ctrlKey, event.metaKey)) {
+      // The preview itself is scrollable for touch panning, so route desktop wheel input to the page.
+      const unit = event.deltaMode === WheelEvent.DOM_DELTA_LINE ? 16 : event.deltaMode === WheelEvent.DOM_DELTA_PAGE ? window.innerHeight : 1;
+      event.preventDefault();
+      window.scrollBy(event.deltaX * unit, event.deltaY * unit);
+      return;
+    }
+    if (event.deltaY === 0) return;
     event.preventDefault();
-    const viewportRect = viewport.getBoundingClientRect();
-    const canvasRect = canvas.getBoundingClientRect();
     const nextZoom = zoomPreviewByWheel(zoomPercent, event.deltaY);
     if (nextZoom === zoomPercent) {
       zoomAnchorRef.current = null;
       return;
     }
-    zoomAnchorRef.current = {
-      imageX: Math.max(0, Math.min(1, (event.clientX - canvasRect.left) / Math.max(1, canvasRect.width))),
-      imageY: Math.max(0, Math.min(1, (event.clientY - canvasRect.top) / Math.max(1, canvasRect.height))),
-      viewportX: event.clientX - viewportRect.left - viewport.clientLeft,
-      viewportY: event.clientY - viewportRect.top - viewport.clientTop,
-    };
+    anchorZoomAt(event.clientX, event.clientY);
     setZoomPercent(nextZoom);
     setShowBrushCursor(false);
   };
@@ -549,6 +577,49 @@ export function BackgroundRemoverTool() {
       renderFrameRef.current = null;
     }
     drawPreview();
+  };
+
+  const handlePreviewPointerDown = (event: React.PointerEvent<HTMLCanvasElement>) => {
+    const viewport = previewViewportRef.current;
+    const brushIsActive = manualControl && !compare && !panMode;
+    if (!brushIsActive && event.pointerType === "mouse" && event.button === 0 && viewport &&
+      (viewport.scrollWidth > viewport.clientWidth + 1 || viewport.scrollHeight > viewport.clientHeight + 1)) {
+      panPointerRef.current = {
+        id: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        scrollLeft: viewport.scrollLeft,
+        scrollTop: viewport.scrollTop,
+      };
+      event.currentTarget.setPointerCapture(event.pointerId);
+      setIsPanning(true);
+      event.preventDefault();
+      return;
+    }
+    handleBrushDown(event);
+  };
+
+  const handlePreviewPointerMove = (event: React.PointerEvent<HTMLCanvasElement>) => {
+    const pan = panPointerRef.current;
+    const viewport = previewViewportRef.current;
+    if (pan && viewport && pan.id === event.pointerId) {
+      const scroll = getPreviewPanScroll(pan.scrollLeft, pan.scrollTop, pan.startX, pan.startY, event.clientX, event.clientY);
+      viewport.scrollLeft = scroll.left;
+      viewport.scrollTop = scroll.top;
+      event.preventDefault();
+      return;
+    }
+    handleBrushMove(event);
+  };
+
+  const finishPreviewPointer = (event?: React.PointerEvent<HTMLCanvasElement>) => {
+    const pan = panPointerRef.current;
+    if (pan && (!event || pan.id === event.pointerId)) {
+      panPointerRef.current = null;
+      setIsPanning(false);
+      return;
+    }
+    finishBrushStroke(event);
   };
 
   const undo = () => {
@@ -642,12 +713,24 @@ export function BackgroundRemoverTool() {
   };
 
   const changeZoom = (amount: number) => {
-    zoomAnchorRef.current = null;
-    setZoomPercent((current) => clampPreviewZoom(current + amount));
+    const nextZoom = clampPreviewZoom(zoomPercent + amount);
+    if (nextZoom === zoomPercent) return;
+    const viewport = previewViewportRef.current;
+    if (viewport) {
+      const rect = viewport.getBoundingClientRect();
+      anchorZoomAt(rect.left + rect.width / 2, rect.top + rect.height / 2);
+    }
+    setZoomPercent(nextZoom);
+    setShowBrushCursor(false);
+  };
+  const fitZoom = () => {
+    zoomAnchorRef.current = "reset";
+    setZoomPercent(100);
     setShowBrushCursor(false);
   };
   const toggleManualControl = () => {
     setManualControl((enabled) => !enabled);
+    setPanMode(false);
     setShowBrushCursor(false);
   };
   const previewDisplaySize = previewBaseSize
@@ -700,8 +783,13 @@ export function BackgroundRemoverTool() {
                       <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => changeZoom(-PREVIEW_ZOOM_STEP)} disabled={zoomPercent <= MIN_PREVIEW_ZOOM} aria-label="Zoom out" title="Zoom out"><ZoomOut className="h-4 w-4" /></Button>
                       <span className="min-w-[3.25rem] text-center text-xs font-semibold tabular-nums text-slate-700" aria-live="polite">{Math.round(zoomPercent)}%</span>
                       <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => changeZoom(PREVIEW_ZOOM_STEP)} disabled={zoomPercent >= MAX_PREVIEW_ZOOM} aria-label="Zoom in" title="Zoom in"><ZoomIn className="h-4 w-4" /></Button>
-                      <Button variant="ghost" size="sm" className="h-8 px-2 text-xs" onClick={() => { zoomAnchorRef.current = null; setZoomPercent(100); setShowBrushCursor(false); }} disabled={zoomPercent === 100}>Fit</Button>
+                      <Button variant="ghost" size="sm" className="h-8 px-2 text-xs" onClick={fitZoom} disabled={zoomPercent === 100}>Fit</Button>
                     </div>
+                    {manualControl && (
+                      <Button variant={panMode ? "primary" : "outline"} size="sm" onClick={() => setPanMode((active) => !active)} aria-pressed={panMode} aria-label={panMode ? "Use brush" : "Move image"} title={panMode ? "Switch back to the brush" : "Move the zoomed image"}>
+                        <Hand className="h-4 w-4" /> {panMode ? "Pan mode" : "Move image"}
+                      </Button>
+                    )}
                     <Button variant={compare ? "primary" : "outline"} size="sm" onClick={() => setCompare((value) => !value)} aria-pressed={compare}>
                       {compare ? "Editing" : "Compare"}
                     </Button>
@@ -718,13 +806,13 @@ export function BackgroundRemoverTool() {
                     <canvas
                       ref={previewCanvasRef}
                       aria-label={compare ? "Edited image preview" : brushMode === "erase" ? "Edited image; erase background with the brush" : "Edited image; restore subject with the brush"}
-                      className={`block touch-none select-none ${compare ? "cursor-default" : manualControl ? "cursor-crosshair" : "cursor-zoom-in"}`}
-                      style={{ width: previewDisplaySize?.width ?? 0, height: previewDisplaySize?.height ?? 0 }}
-                      onPointerDown={handleBrushDown}
-                      onPointerMove={handleBrushMove}
-                      onPointerUp={finishBrushStroke}
-                      onPointerCancel={finishBrushStroke}
-                      onLostPointerCapture={finishBrushStroke}
+                      className={`block select-none ${manualControl && !compare && !panMode ? "cursor-crosshair" : zoomPercent > 100 ? isPanning ? "cursor-grabbing" : "cursor-grab" : "cursor-default"}`}
+                      style={{ width: previewDisplaySize?.width ?? 0, height: previewDisplaySize?.height ?? 0, touchAction: manualControl && !compare && !panMode ? "none" : "auto" }}
+                      onPointerDown={handlePreviewPointerDown}
+                      onPointerMove={handlePreviewPointerMove}
+                      onPointerUp={finishPreviewPointer}
+                      onPointerCancel={finishPreviewPointer}
+                      onLostPointerCapture={finishPreviewPointer}
                     />
                     {compare && originalUrl && (
                       <div className="pointer-events-none absolute inset-0 overflow-hidden" style={{ clipPath: `inset(0 ${100 - comparePosition}% 0 0)` }}>
@@ -751,7 +839,7 @@ export function BackgroundRemoverTool() {
                   <span>Edited</span>
                 </div>
               ) : hasResult ? (
-                <p className="mt-3 text-center text-xs text-slate-500">Scroll over the image to zoom in or out. {manualControl ? `${brushMode === "erase" ? "Paint over leftover background to erase it." : "Paint over missing areas to restore the subject."} Brush size: ${brushSize}px.` : "Turn on Manual Control to use the erase and restore brushes."}</p>
+                <p className="mt-3 text-center text-xs text-slate-500">Scroll normally to move the page. Hold Ctrl (Windows) or ⌘ (Mac) while scrolling to zoom; use the buttons on mobile. {manualControl && !compare ? panMode ? "Move image mode: drag to pan; select it again to return to the brush." : `${brushMode === "erase" ? "Paint over leftover background to erase it." : "Paint over missing areas to restore the subject."} Brush size: ${brushSize}px. Choose Move image to pan.` : "Drag the enlarged image to move around. Turn on Manual Control to use the erase and restore brushes."}</p>
               ) : null}
             </div>
 
