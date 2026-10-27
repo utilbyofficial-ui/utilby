@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import {
+  DEFAULT_EDGE_SOFTNESS,
   MAX_BACKGROUND_REMOVER_FILE_BYTES,
   MAX_PREVIEW_ZOOM,
   MIN_PREVIEW_ZOOM,
@@ -119,7 +120,7 @@ export function BackgroundRemoverTool() {
   const [zoomPercent, setZoomPercent] = React.useState(100);
   const [previewBaseSize, setPreviewBaseSize] = React.useState<{ width: number; height: number } | null>(null);
   const [showBrushCursor, setShowBrushCursor] = React.useState(false);
-  const [edgeSoftness, setEdgeSoftness] = React.useState(20);
+  const [edgeSoftness, setEdgeSoftness] = React.useState(DEFAULT_EDGE_SOFTNESS);
   const [maskRevision, setMaskRevision] = React.useState(0);
   const [compare, setCompare] = React.useState(false);
   const [comparePosition, setComparePosition] = React.useState(50);

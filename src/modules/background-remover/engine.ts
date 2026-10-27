@@ -3,6 +3,7 @@ export const MAX_BACKGROUND_REMOVER_PIXELS = 24_000_000;
 export const MAX_BACKGROUND_REMOVER_DIMENSION = 16_000;
 export const MAX_MASK_EDGE = 2_048;
 export const MAX_MODEL_INPUT_EDGE = 1_536;
+export const DEFAULT_EDGE_SOFTNESS = 0;
 export const MIN_PREVIEW_ZOOM = 50;
 export const MAX_PREVIEW_ZOOM = 300;
 export const PREVIEW_ZOOM_STEP = 25;
@@ -156,7 +157,7 @@ export function clampBrushSize(value: number): number {
 }
 
 export function clampEdgeSoftness(value: number): number {
-  if (!Number.isFinite(value)) return 20;
+  if (!Number.isFinite(value)) return DEFAULT_EDGE_SOFTNESS;
   return Math.min(100, Math.max(0, Math.round(value)));
 }
 

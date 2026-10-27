@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  DEFAULT_EDGE_SOFTNESS,
   MAX_BACKGROUND_REMOVER_FILE_BYTES,
   MAX_PREVIEW_ZOOM,
   MIN_PREVIEW_ZOOM,
@@ -99,6 +100,8 @@ describe("background remover geometry and mask helpers", () => {
     expect(clampBrushSize(1)).toBe(4);
     expect(clampBrushSize(200)).toBe(120);
     expect(clampBrushSize(Number.NaN)).toBe(36);
+    expect(DEFAULT_EDGE_SOFTNESS).toBe(0);
+    expect(clampEdgeSoftness(Number.NaN)).toBe(DEFAULT_EDGE_SOFTNESS);
     expect(clampEdgeSoftness(-10)).toBe(0);
     expect(clampEdgeSoftness(300)).toBe(100);
     expect(buildBackgroundOutputName("Family photo.jpeg", "image/png")).toBe("Family photo-background-removed.png");
