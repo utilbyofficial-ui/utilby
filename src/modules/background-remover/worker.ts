@@ -2,6 +2,7 @@ import {
   extractAlphaChannel,
   getModelInputDimensions,
   hasUsableAlphaMask,
+  preserveOpaqueSubjectInterior,
   validateImageDimensions,
 } from "./engine";
 
@@ -93,7 +94,7 @@ async function loadPipelineEngine(
       }
       const alpha = extractAlphaChannel(output.data, output.width, output.height, output.channels);
       validateAlphaMask(alpha);
-      return { alpha, width: output.width, height: output.height };
+      return { alpha: preserveOpaqueSubjectInterior(alpha, output.width, output.height), width: output.width, height: output.height };
     },
   };
 }

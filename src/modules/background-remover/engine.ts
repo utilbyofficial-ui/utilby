@@ -142,6 +142,37 @@ export function extractAlphaChannel(
   return alpha;
 }
 
+/** Makes confident subject pixels opaque while keeping a one-pixel antialiased edge. */
+export function preserveOpaqueSubjectInterior(alpha: Uint8Array, width: number, height: number): Uint8Array {
+  const pixelCount = width * height;
+  if (!Number.isSafeInteger(width) || !Number.isSafeInteger(height) || !Number.isSafeInteger(pixelCount) || width < 1 || height < 1 || alpha.length !== pixelCount) {
+    throw new RangeError("The subject mask has invalid dimensions.");
+  }
+
+  const result = alpha.slice();
+  if (width < 3 || height < 3) return result;
+
+  // A connected 3×3 area with at least 25% foreground confidence is treated as fabric/body interior.
+  // Pixels next to the silhouette keep the model's partial alpha for natural hair and edge detail.
+  for (let y = 1; y < height - 1; y++) {
+    const row = y * width;
+    for (let x = 1; x < width - 1; x++) {
+      let interior = true;
+      for (let dy = -1; dy <= 1 && interior; dy++) {
+        const neighborRow = row + dy * width;
+        for (let dx = -1; dx <= 1; dx++) {
+          if ((alpha[neighborRow + x + dx] ?? 0) < 64) {
+            interior = false;
+            break;
+          }
+        }
+      }
+      if (interior) result[row + x] = 255;
+    }
+  }
+  return result;
+}
+
 export function hasUsableAlphaMask(alpha: ArrayLike<number>, minimumAlpha = 64): boolean {
   if (!Number.isFinite(minimumAlpha) || minimumAlpha < 0 || alpha.length === 0) return false;
   let max = 0;

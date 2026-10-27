@@ -477,7 +477,7 @@ export function BackgroundRemoverTool() {
       const size = clampBrushSize(brushSize) * (maskCanvasRef.current.width / Math.max(1, rect.width));
       context.save();
       context.globalCompositeOperation = brushMode === "erase" ? "destination-out" : "source-over";
-      context.fillStyle = brushMode === "erase" ? "rgba(0,0,0,1)" : "rgba(255,255,255,0.92)";
+      context.fillStyle = brushMode === "erase" ? "rgba(0,0,0,1)" : "rgba(255,255,255,1)";
       context.beginPath();
       context.arc(point.x, point.y, size / 2, 0, Math.PI * 2);
       context.fill();

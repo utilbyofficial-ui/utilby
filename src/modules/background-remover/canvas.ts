@@ -111,7 +111,7 @@ export function drawBrushStroke(
   context.lineJoin = "round";
   context.lineWidth = size;
   context.globalCompositeOperation = mode === "erase" ? "destination-out" : "source-over";
-  context.strokeStyle = mode === "erase" ? "rgba(0, 0, 0, 1)" : "rgba(255, 255, 255, 0.92)";
+  context.strokeStyle = mode === "erase" ? "rgba(0, 0, 0, 1)" : "rgba(255, 255, 255, 1)";
   context.beginPath();
   context.moveTo(from.x, from.y);
   context.lineTo(to.x, to.y);

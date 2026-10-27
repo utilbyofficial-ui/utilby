@@ -19,6 +19,7 @@ import {
   getModelInputDimensions,
   hasUsableAlphaMask,
   mapPointerToMask,
+  preserveOpaqueSubjectInterior,
   validateBackgroundInput,
   validateImageDimensions,
   zoomPreviewByWheel,
@@ -86,6 +87,22 @@ describe("background remover geometry and mask helpers", () => {
     expect(Array.from(extractAlphaChannel(new Uint8Array([2, 200, 4, 100]), 2, 1, 2))).toEqual([200, 100]);
     expect(() => extractAlphaChannel(new Uint8Array(3), 1, 1, 4)).toThrow(/incomplete/i);
     expect(() => extractAlphaChannel(new Uint8Array(4), 1, 1, 3)).toThrow(/alpha mask/i);
+  });
+
+  it("makes confident clothing/body interiors opaque while retaining soft edges", () => {
+    const alpha = new Uint8Array(7 * 7);
+    for (let y = 1; y <= 5; y++) {
+      for (let x = 1; x <= 5; x++) alpha[y * 7 + x] = 128;
+    }
+
+    const result = preserveOpaqueSubjectInterior(alpha, 7, 7);
+    expect(result[3 * 7 + 3]).toBe(255);
+    expect(result[2 * 7 + 2]).toBe(255);
+    expect(result[1 * 7 + 1]).toBe(128);
+    expect(result[0]).toBe(0);
+    expect(alpha[3 * 7 + 3]).toBe(128);
+    expect(preserveOpaqueSubjectInterior(new Uint8Array([128, 128, 128, 128]), 2, 2)).toEqual(new Uint8Array([128, 128, 128, 128]));
+    expect(() => preserveOpaqueSubjectInterior(new Uint8Array(2), 2, 2)).toThrow(/dimensions/i);
   });
 
   it("rejects blank or nearly transparent model masks instead of reporting success", () => {
