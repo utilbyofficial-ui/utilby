@@ -96,12 +96,14 @@ describe("background remover geometry and mask helpers", () => {
     }
 
     const result = preserveOpaqueSubjectInterior(alpha, 7, 7);
+    expect(result).toBe(alpha);
     expect(result[3 * 7 + 3]).toBe(255);
     expect(result[2 * 7 + 2]).toBe(255);
     expect(result[1 * 7 + 1]).toBe(128);
     expect(result[0]).toBe(0);
-    expect(alpha[3 * 7 + 3]).toBe(128);
-    expect(preserveOpaqueSubjectInterior(new Uint8Array([128, 128, 128, 128]), 2, 2)).toEqual(new Uint8Array([128, 128, 128, 128]));
+    expect(alpha[3 * 7 + 3]).toBe(255);
+    const smallMask = new Uint8Array([128, 128, 128, 128]);
+    expect(preserveOpaqueSubjectInterior(smallMask, 2, 2)).toBe(smallMask);
     expect(() => preserveOpaqueSubjectInterior(new Uint8Array(2), 2, 2)).toThrow(/dimensions/i);
   });
 

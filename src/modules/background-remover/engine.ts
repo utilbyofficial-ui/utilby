@@ -142,35 +142,43 @@ export function extractAlphaChannel(
   return alpha;
 }
 
-/** Makes confident subject pixels opaque while keeping a one-pixel antialiased edge. */
+/** Makes confident subject pixels opaque in place while keeping a one-pixel antialiased edge. */
 export function preserveOpaqueSubjectInterior(alpha: Uint8Array, width: number, height: number): Uint8Array {
   const pixelCount = width * height;
   if (!Number.isSafeInteger(width) || !Number.isSafeInteger(height) || !Number.isSafeInteger(pixelCount) || width < 1 || height < 1 || alpha.length !== pixelCount) {
     throw new RangeError("The subject mask has invalid dimensions.");
   }
 
-  const result = alpha.slice();
-  if (width < 3 || height < 3) return result;
+  if (width < 3 || height < 3) return alpha;
 
   // A connected 3×3 area with at least 25% foreground confidence is treated as fabric/body interior.
   // Pixels next to the silhouette keep the model's partial alpha for natural hair and edge detail.
+  // Three row buffers avoid copying the potentially multi-megapixel mask in memory-constrained browsers.
+  const fillHorizontalSupport = (y: number, target: Uint8Array) => {
+    const row = y * width;
+    target.fill(0);
+    for (let x = 1; x < width - 1; x++) {
+      target[x] = alpha[row + x - 1] >= 64 && alpha[row + x] >= 64 && alpha[row + x + 1] >= 64 ? 1 : 0;
+    }
+  };
+  let above = new Uint8Array(width);
+  let middle = new Uint8Array(width);
+  let below = new Uint8Array(width);
+  fillHorizontalSupport(0, above);
+  fillHorizontalSupport(1, middle);
+
   for (let y = 1; y < height - 1; y++) {
+    fillHorizontalSupport(y + 1, below);
     const row = y * width;
     for (let x = 1; x < width - 1; x++) {
-      let interior = true;
-      for (let dy = -1; dy <= 1 && interior; dy++) {
-        const neighborRow = row + dy * width;
-        for (let dx = -1; dx <= 1; dx++) {
-          if ((alpha[neighborRow + x + dx] ?? 0) < 64) {
-            interior = false;
-            break;
-          }
-        }
-      }
-      if (interior) result[row + x] = 255;
+      if (above[x] && middle[x] && below[x]) alpha[row + x] = 255;
     }
+    const previous = above;
+    above = middle;
+    middle = below;
+    below = previous;
   }
-  return result;
+  return alpha;
 }
 
 export function hasUsableAlphaMask(alpha: ArrayLike<number>, minimumAlpha = 64): boolean {
