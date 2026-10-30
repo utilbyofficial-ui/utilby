@@ -36,6 +36,7 @@ import {
   getPreviewPanScroll,
   formatImageDimensions,
   getPreviewDisplaySize,
+  getModelInputDimensions,
   isPreviewZoomGesture,
   mapPointerToMask,
   validateBackgroundInput,
@@ -91,6 +92,28 @@ function triggerBlobDownload(blob: Blob, filename: string) {
   window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
 }
 
+async function prepareModelInput(source: ImageBitmap): Promise<Blob> {
+  const dimensions = getModelInputDimensions(source.width, source.height);
+  const canvas = document.createElement("canvas");
+  canvas.width = dimensions.width;
+  canvas.height = dimensions.height;
+  try {
+    const context = canvas.getContext("2d", { alpha: false });
+    if (!context) throw new Error("This browser could not prepare the photo for background removal.");
+    context.imageSmoothingEnabled = true;
+    context.imageSmoothingQuality = "high";
+    context.drawImage(source, 0, 0, dimensions.width, dimensions.height);
+    const blob = await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob((result) => result ? resolve(result) : reject(new Error("This browser could not prepare the photo for background removal.")), "image/png");
+    });
+    if (!blob.size) throw new Error("This browser could not prepare the photo for background removal.");
+    return blob;
+  } finally {
+    canvas.width = 0;
+    canvas.height = 0;
+  }
+}
+
 function checkerboardStyle(): React.CSSProperties {
   return {
     backgroundImage: "conic-gradient(#dbe2ea 25%, transparent 0 50%, #dbe2ea 0 75%, transparent 0)",
@@ -138,6 +161,7 @@ export function BackgroundRemoverTool() {
   const backgroundInputRef = React.useRef<HTMLInputElement>(null);
   const originalUrlRef = React.useRef("");
   const workerRef = React.useRef<Worker | null>(null);
+  const modelInputRef = React.useRef<Blob | null>(null);
   const sourceBitmapRef = React.useRef<ImageBitmap | null>(null);
   const backgroundBitmapRef = React.useRef<ImageBitmap | null>(null);
   const maskCanvasRef = React.useRef<HTMLCanvasElement | null>(null);
@@ -209,6 +233,7 @@ export function BackgroundRemoverTool() {
     jobIdRef.current++;
     workerRef.current?.terminate();
     workerRef.current = null;
+    modelInputRef.current = null;
     sourceBitmapRef.current?.close();
     sourceBitmapRef.current = null;
     backgroundBitmapRef.current?.close();
@@ -225,6 +250,7 @@ export function BackgroundRemoverTool() {
 
   React.useEffect(() => () => {
     workerRef.current?.terminate();
+    modelInputRef.current = null;
     sourceBitmapRef.current?.close();
     backgroundBitmapRef.current?.close();
     if (originalUrlRef.current) URL.revokeObjectURL(originalUrlRef.current);
@@ -288,8 +314,16 @@ export function BackgroundRemoverTool() {
     setCanRedo(redoStackRef.current.length > 0);
   }, []);
 
-  const startProcessing = React.useCallback((imageFile: File, jobId: number) => {
-    const worker = new Worker(new URL("./worker.ts", import.meta.url), { type: "module" });
+  const startProcessing = React.useCallback((image: Blob, jobId: number) => {
+    let worker: Worker;
+    try {
+      worker = new Worker(new URL("./worker.ts", import.meta.url), { type: "module" });
+    } catch (reason) {
+      if (jobId !== jobIdRef.current) return;
+      setStatus("error");
+      setError(reason instanceof Error && reason.message ? reason.message : "This browser could not start the background-removal engine. Reload the page and try again.");
+      return;
+    }
     workerRef.current = worker;
     worker.onmessage = (event: MessageEvent<WorkerReply>) => {
       const message = event.data;
@@ -325,6 +359,7 @@ export function BackgroundRemoverTool() {
           setStatus("error");
           setError(reason instanceof Error ? reason.message : "The AI result could not be prepared. Please try again.");
           worker.terminate();
+          if (workerRef.current === worker) workerRef.current = null;
         }
         return;
       }
@@ -335,14 +370,32 @@ export function BackgroundRemoverTool() {
         if (workerRef.current === worker) workerRef.current = null;
       }
     };
-    worker.onerror = () => {
+    worker.onerror = (event) => {
       if (jobId !== jobIdRef.current) return;
       setStatus("error");
-      setError("The background-removal engine stopped unexpectedly. Try again, or use a smaller JPG or PNG image.");
+      setError(event.message
+        ? `The background-removal engine stopped: ${event.message}. Try again, or use a smaller JPG or PNG image.`
+        : "The background-removal engine stopped unexpectedly. Try again, or use a smaller JPG or PNG image.");
       worker.terminate();
       if (workerRef.current === worker) workerRef.current = null;
     };
-    worker.postMessage({ type: "remove-background", jobId, file: imageFile });
+    worker.onmessageerror = () => {
+      if (jobId !== jobIdRef.current) return;
+      setStatus("error");
+      setError("The prepared image could not be sent to the background-removal engine. Try uploading it again.");
+      worker.terminate();
+      if (workerRef.current === worker) workerRef.current = null;
+    };
+    try {
+      worker.postMessage({ type: "remove-background", jobId, file: image });
+    } catch (reason) {
+      if (jobId === jobIdRef.current) {
+        setStatus("error");
+        setError(reason instanceof Error && reason.message ? reason.message : "The prepared image could not be sent to the background-removal engine. Try uploading it again.");
+      }
+      worker.terminate();
+      if (workerRef.current === worker) workerRef.current = null;
+    }
   }, []);
 
   const addImage = React.useCallback(async (imageFile: File) => {
@@ -356,6 +409,7 @@ export function BackgroundRemoverTool() {
     const jobId = ++jobIdRef.current;
     workerRef.current?.terminate();
     workerRef.current = null;
+    modelInputRef.current = null;
     sourceBitmapRef.current?.close();
     sourceBitmapRef.current = null;
     backgroundBitmapRef.current?.close();
@@ -386,8 +440,9 @@ export function BackgroundRemoverTool() {
     setProgressText("Opening your image…");
     setStatus("loading");
 
+    let bitmap: ImageBitmap | null = null;
     try {
-      const bitmap = await createImageBitmap(imageFile, { imageOrientation: "from-image" });
+      bitmap = await createImageBitmap(imageFile, { imageOrientation: "from-image" });
       if (jobId !== jobIdRef.current) {
         bitmap.close();
         return;
@@ -399,19 +454,29 @@ export function BackgroundRemoverTool() {
         setError(dimensionError);
         return;
       }
+      setProgressText("Preparing a smaller copy for the AI model…");
+      const modelInput = await prepareModelInput(bitmap);
+      if (jobId !== jobIdRef.current) {
+        bitmap.close();
+        return;
+      }
+      const sourceDimensions = { width: bitmap.width, height: bitmap.height };
       const url = URL.createObjectURL(imageFile);
       sourceBitmapRef.current = bitmap;
+      bitmap = null;
+      modelInputRef.current = modelInput;
       originalUrlRef.current = url;
       setFile(imageFile);
       setOriginalUrl(url);
-      setDimensions({ width: bitmap.width, height: bitmap.height });
+      setDimensions(sourceDimensions);
       setStatus("loading");
       setProgressText("Loading the AI model on your device…");
-      startProcessing(imageFile, jobId);
-    } catch {
+      startProcessing(modelInput, jobId);
+    } catch (reason) {
+      bitmap?.close();
       if (jobId !== jobIdRef.current) return;
-      setStatus("empty");
-      setError("This image could not be opened. Try a regular JPG, PNG, WebP, or BMP file.");
+      setStatus("error");
+      setError(reason instanceof Error && reason.message ? reason.message : "This image could not be opened. Try a regular JPG, PNG, WebP, or BMP file.");
     }
   }, [file, startProcessing]);
 
@@ -674,7 +739,13 @@ export function BackgroundRemoverTool() {
     setProgressText("Loading the AI model on your device…");
     setError("");
     setNotice("");
-    startProcessing(currentFile, jobId);
+    const modelInput = modelInputRef.current;
+    if (!modelInput) {
+      setStatus("error");
+      setError("The prepared image is no longer available. Upload the photo again to continue.");
+      return;
+    }
+    startProcessing(modelInput, jobId);
   };
 
   const downloadResult = async () => {

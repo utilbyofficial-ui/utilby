@@ -144,6 +144,10 @@ async function prepareModelImage(file: Blob): Promise<{ image: Blob | OffscreenC
     if (dimensionError) throw new Error(dimensionError);
 
     const dimensions = getModelInputDimensions(bitmap.width, bitmap.height);
+    // The UI prepares a model-sized copy before posting it. Avoid decoding and encoding it again.
+    if (bitmap.width === dimensions.width && bitmap.height === dimensions.height) {
+      return { image: file, width: bitmap.width, height: bitmap.height };
+    }
     if (typeof OffscreenCanvas === "undefined") {
       return { image: file, width: bitmap.width, height: bitmap.height };
     }
