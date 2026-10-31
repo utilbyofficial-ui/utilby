@@ -29,6 +29,7 @@ const TOOL_GLYPHS: Record<string, string> = {
   "text-case-converter": "Aa",
   "json-formatter": "{ }",
   "csv-json-converter": "CSV",
+  "base64-encoder-decoder": "64",
   "qr-code-generator": "QR",
   "percentage-calculator": "%",
   "password-generator": "***",

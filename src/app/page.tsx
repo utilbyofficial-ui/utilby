@@ -19,7 +19,7 @@ const CATEGORY_BLURB: Record<string, string> = {
   pdf: "Merge, split, organize and convert",
   image: "Convert, compress and resize photos",
   text: "Count words, change case",
-  developer: "JSON and QR codes",
+  developer: "Convert data, format JSON, create QR codes",
   security: "Strong, random passwords",
   calculators: "Percentages made easy",
 };
