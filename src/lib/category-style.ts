@@ -47,6 +47,7 @@ const TOOL_GLYPHS: Record<string, string> = {
   "pdf-editor": "✎",
   "pdf-compressor": "ZIP",
   "pdf-ocr": "OCR",
+  "pdf-cropper": "CROP",
   "add-page-numbers-pdf": "Pg#",
 };
 
@@ -63,6 +64,7 @@ export const POPULAR_TOOL_IDS = [
   "pdf-editor",
   "pdf-to-jpg",
   "pdf-ocr",
+  "pdf-cropper",
   "heic-to-jpg",
   "image-background-remover",
   "watermark-remover",
