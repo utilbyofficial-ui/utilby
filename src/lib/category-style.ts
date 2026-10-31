@@ -28,6 +28,7 @@ const TOOL_GLYPHS: Record<string, string> = {
   "word-counter": "123",
   "text-case-converter": "Aa",
   "json-formatter": "{ }",
+  "csv-json-converter": "CSV",
   "qr-code-generator": "QR",
   "percentage-calculator": "%",
   "password-generator": "***",
@@ -75,4 +76,5 @@ export const POPULAR_TOOL_IDS = [
   "qr-code-generator",
   "word-counter",
   "json-formatter",
+  "csv-json-converter",
 ];
