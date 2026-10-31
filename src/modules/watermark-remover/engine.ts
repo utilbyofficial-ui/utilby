@@ -73,7 +73,7 @@ function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
 
-function makeBounds(strokes: BrushStroke[], width: number, height: number) {
+export function getSelectionBounds(strokes: BrushStroke[], width: number, height: number) {
   let minX = width, minY = height, maxX = 0, maxY = 0, maxBrush = 0;
   let hasPoint = false;
   for (const stroke of strokes) {
@@ -156,7 +156,7 @@ async function yieldToBrowser(): Promise<void> {
   await new Promise<void>((resolve) => setTimeout(resolve, 0));
 }
 
-async function inpaint(data: Uint8ClampedArray, original: Uint8ClampedArray, maskAlpha: Uint8ClampedArray, width: number, height: number): Promise<void> {
+export async function inpaintRegion(data: Uint8ClampedArray, original: Uint8ClampedArray, maskAlpha: Uint8ClampedArray, width: number, height: number): Promise<void> {
   const count = width * height;
   const states = new Uint8Array(count);
   const queue = new Uint32Array(count);
@@ -220,8 +220,52 @@ async function inpaint(data: Uint8ClampedArray, original: Uint8ClampedArray, mas
   }
 }
 
+export interface CloneSourcePixels {
+  data: Uint8ClampedArray;
+  width: number;
+  height: number;
+  left: number;
+  top: number;
+}
+
+export async function cloneSelectionRegion(input: {
+  data: Uint8ClampedArray;
+  original: Uint8ClampedArray;
+  maskAlpha: Uint8ClampedArray;
+  width: number;
+  height: number;
+  fullWidth: number;
+  fullHeight: number;
+  left: number;
+  top: number;
+  offsetX: number;
+  offsetY: number;
+  source: CloneSourcePixels;
+}): Promise<void> {
+  const { data, original, maskAlpha, width, height, fullWidth, fullHeight, left, top, offsetX, offsetY, source } = input;
+  for (let y = 0; y < height; y++) {
+    if (y > 0 && y % 64 === 0) await yieldToBrowser();
+    for (let x = 0; x < width; x++) {
+      const amount = maskAlpha[y * width + x]! / 255;
+      if (amount <= 0) continue;
+      const sourceX = left + x - offsetX;
+      const sourceY = top + y - offsetY;
+      if (sourceX < 0 || sourceY < 0 || sourceX >= fullWidth || sourceY >= fullHeight) continue;
+      const sx = sourceX - source.left;
+      const sy = sourceY - source.top;
+      if (sx < 0 || sy < 0 || sx >= source.width || sy >= source.height) continue;
+      const pixel = (y * width + x) * 4;
+      const sourcePixel = (sy * source.width + sx) * 4;
+      data[pixel] = original[pixel]! * (1 - amount) + source.data[sourcePixel]! * amount;
+      data[pixel + 1] = original[pixel + 1]! * (1 - amount) + source.data[sourcePixel + 1]! * amount;
+      data[pixel + 2] = original[pixel + 2]! * (1 - amount) + source.data[sourcePixel + 2]! * amount;
+      data[pixel + 3] = original[pixel + 3]!;
+    }
+  }
+}
+
 async function applySelection(canvas: HTMLCanvasElement, operation: EditOperation): Promise<void> {
-  const bounds = makeBounds(operation.strokes, canvas.width, canvas.height);
+  const bounds = getSelectionBounds(operation.strokes, canvas.width, canvas.height);
   if (!bounds) return;
   const width = bounds.right - bounds.left;
   const height = bounds.bottom - bounds.top;
@@ -250,35 +294,30 @@ async function applySelection(canvas: HTMLCanvasElement, operation: EditOperatio
     // source can sit outside the small edited region.
     const offsetX = Math.round(operation.cloneOffset.x * canvas.width);
     const offsetY = Math.round(operation.cloneOffset.y * canvas.height);
-    const source = context.getImageData(
-      clamp(bounds.left - offsetX, 0, canvas.width - 1),
-      clamp(bounds.top - offsetY, 0, canvas.height - 1),
-      Math.min(width, canvas.width - clamp(bounds.left - offsetX, 0, canvas.width - 1)),
-      Math.min(height, canvas.height - clamp(bounds.top - offsetY, 0, canvas.height - 1))
-    );
     const sourceLeft = clamp(bounds.left - offsetX, 0, canvas.width - 1);
     const sourceTop = clamp(bounds.top - offsetY, 0, canvas.height - 1);
-    for (let y = 0; y < height; y++) {
-      if (y > 0 && y % 64 === 0) await yieldToBrowser();
-      for (let x = 0; x < width; x++) {
-        const amount = alpha[y * width + x]! / 255;
-        if (amount <= 0) continue;
-        const sourceX = bounds.left + x - offsetX;
-        const sourceY = bounds.top + y - offsetY;
-        if (sourceX < 0 || sourceY < 0 || sourceX >= canvas.width || sourceY >= canvas.height) continue;
-        const sx = sourceX - sourceLeft;
-        const sy = sourceY - sourceTop;
-        if (sx < 0 || sy < 0 || sx >= source.width || sy >= source.height) continue;
-        const pixel = (y * width + x) * 4;
-        const sourcePixel = (sy * source.width + sx) * 4;
-        imageData.data[pixel] = originalPixels[pixel]! * (1 - amount) + source.data[sourcePixel]! * amount;
-        imageData.data[pixel + 1] = originalPixels[pixel + 1]! * (1 - amount) + source.data[sourcePixel + 1]! * amount;
-        imageData.data[pixel + 2] = originalPixels[pixel + 2]! * (1 - amount) + source.data[sourcePixel + 2]! * amount;
-        imageData.data[pixel + 3] = originalPixels[pixel + 3]!;
-      }
-    }
+    const source = context.getImageData(
+      sourceLeft,
+      sourceTop,
+      Math.min(width, canvas.width - sourceLeft),
+      Math.min(height, canvas.height - sourceTop)
+    );
+    await cloneSelectionRegion({
+      data: imageData.data,
+      original: originalPixels,
+      maskAlpha: alpha,
+      width,
+      height,
+      fullWidth: canvas.width,
+      fullHeight: canvas.height,
+      left: bounds.left,
+      top: bounds.top,
+      offsetX,
+      offsetY,
+      source: { ...source, left: sourceLeft, top: sourceTop },
+    });
   } else {
-    await inpaint(imageData.data, originalPixels, alpha, width, height);
+    await inpaintRegion(imageData.data, originalPixels, alpha, width, height);
   }
 
   context.putImageData(imageData, bounds.left, bounds.top);
